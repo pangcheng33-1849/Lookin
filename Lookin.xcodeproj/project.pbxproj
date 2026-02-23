@@ -572,6 +572,7 @@
 		D4D1B2D22353975A002A5071 /* LKWindowToolbarScaleView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKWindowToolbarScaleView.m; sourceTree = "<group>"; };
 		D4E1FD64236169130070DFB8 /* LKMeasureResultLineData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMeasureResultLineData.h; sourceTree = "<group>"; };
 		D4E1FD65236169130070DFB8 /* LKMeasureResultLineData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMeasureResultLineData.m; sourceTree = "<group>"; };
+		D97552B9BF9170E090F8CAA7 /* Pods-LookinClient.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LookinClient.debug.xcconfig"; path = "Target Support Files/Pods-LookinClient/Pods-LookinClient.debug.xcconfig"; sourceTree = "<group>"; };
 		F1D3A1000000000000000001 /* LKMCPServerRuntime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPServerRuntime.h; sourceTree = "<group>"; };
 		F1D3A1000000000000000002 /* LKMCPServerRuntime.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPServerRuntime.m; sourceTree = "<group>"; };
 		F1D3A1000000000000000003 /* LKMCPToolRouter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPToolRouter.h; sourceTree = "<group>"; };
@@ -585,7 +586,6 @@
 		F1D3A100000000000000000B /* LKRequirementBindingStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKRequirementBindingStore.h; sourceTree = "<group>"; };
 		F1D3A100000000000000000C /* LKRequirementBindingStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementBindingStore.m; sourceTree = "<group>"; };
 		F1D3A100000000000000000D /* LKMCPNotifications.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPNotifications.h; sourceTree = "<group>"; };
-		D97552B9BF9170E090F8CAA7 /* Pods-LookinClient.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LookinClient.debug.xcconfig"; path = "Target Support Files/Pods-LookinClient/Pods-LookinClient.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -682,34 +682,6 @@
 				A777C2A62B2F55EE00677624 /* DanceScript.sh */,
 			);
 			path = DanceScript;
-			sourceTree = "<group>";
-		};
-		F1D3A1000000000000000010 /* MCP */ = {
-			isa = PBXGroup;
-			children = (
-				F1D3A1000000000000000011 /* LookinMCP */,
-			);
-			path = MCP;
-			sourceTree = "<group>";
-		};
-		F1D3A1000000000000000011 /* LookinMCP */ = {
-			isa = PBXGroup;
-			children = (
-				F1D3A1000000000000000005 /* LKMCPError.h */,
-				F1D3A1000000000000000006 /* LKMCPError.m */,
-				F1D3A100000000000000000D /* LKMCPNotifications.h */,
-				F1D3A1000000000000000001 /* LKMCPServerRuntime.h */,
-				F1D3A1000000000000000002 /* LKMCPServerRuntime.m */,
-				F1D3A1000000000000000003 /* LKMCPToolRouter.h */,
-				F1D3A1000000000000000004 /* LKMCPToolRouter.m */,
-				F1D3A1000000000000000007 /* LKMCPContextService.h */,
-				F1D3A1000000000000000008 /* LKMCPContextService.m */,
-				F1D3A1000000000000000009 /* LKRequirementBindingService.h */,
-				F1D3A100000000000000000A /* LKRequirementBindingService.m */,
-				F1D3A100000000000000000B /* LKRequirementBindingStore.h */,
-				F1D3A100000000000000000C /* LKRequirementBindingStore.m */,
-			);
-			path = LookinMCP;
 			sourceTree = "<group>";
 		};
 		A77AA17F2AEED98B006A7BF4 /* Other */ = {
@@ -1226,6 +1198,34 @@
 			path = Measure;
 			sourceTree = "<group>";
 		};
+		F1D3A1000000000000000010 /* MCP */ = {
+			isa = PBXGroup;
+			children = (
+				F1D3A1000000000000000011 /* LookinMCP */,
+			);
+			path = MCP;
+			sourceTree = "<group>";
+		};
+		F1D3A1000000000000000011 /* LookinMCP */ = {
+			isa = PBXGroup;
+			children = (
+				F1D3A1000000000000000005 /* LKMCPError.h */,
+				F1D3A1000000000000000006 /* LKMCPError.m */,
+				F1D3A100000000000000000D /* LKMCPNotifications.h */,
+				F1D3A1000000000000000001 /* LKMCPServerRuntime.h */,
+				F1D3A1000000000000000002 /* LKMCPServerRuntime.m */,
+				F1D3A1000000000000000003 /* LKMCPToolRouter.h */,
+				F1D3A1000000000000000004 /* LKMCPToolRouter.m */,
+				F1D3A1000000000000000007 /* LKMCPContextService.h */,
+				F1D3A1000000000000000008 /* LKMCPContextService.m */,
+				F1D3A1000000000000000009 /* LKRequirementBindingService.h */,
+				F1D3A100000000000000000A /* LKRequirementBindingService.m */,
+				F1D3A100000000000000000B /* LKRequirementBindingStore.h */,
+				F1D3A100000000000000000C /* LKRequirementBindingStore.m */,
+			);
+			path = LookinMCP;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -1340,13 +1340,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LookinClient/Pods-LookinClient-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LookinClient/Pods-LookinClient-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

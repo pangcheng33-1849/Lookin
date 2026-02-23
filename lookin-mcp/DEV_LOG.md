@@ -1,0 +1,134 @@
+# Lookin-MCP 开发过程记录
+
+> 维护方式：按时间倒序追加；每条记录尽量包含「变更内容 / 影响文件 / 下一步」。
+
+## 2026-02-23
+
+### 进展（MCP 字段与约束解析）
+
+- FR-1 字段调整完成：`attrType` 已替换为 `attrTitle`（字符串）。
+  - 服务端：`Lookin-Develop/LookinClient/MCP/LookinMCP/LKMCPContextService.m`
+  - 文档：`lookin-mcp/API_SPEC.md`、`lookin-mcp/PRD.md`
+  - 测试：`lookin-mcp/tests/test_functional.py` 已新增断言，校验 `attrTitle` 必填且 `attrType` 不再返回。
+- `LookinAutoLayoutConstraint` 已从“直接 description 字符串”改为“结构化 JSON”输出：
+  - 在 `_jsonSafeValue` 中增加约束对象专用分支 `_jsonSafeConstraint`。
+  - 约束项输出包含 `expression`、`relation`、`firstItem/secondItem`、`firstAttribute/secondAttribute`、`priority/constant/multiplier` 等关键字段。
+  - 对应功能测试已补：当 `attrIdentifier == "al_c_c"` 时，`value[]` 每项必须为对象且包含 `expression`。
+- 编译状态：
+  - `xcodebuild -workspace Lookin-Develop/Lookin.xcworkspace -scheme LookinClient -configuration Debug -derivedDataPath /tmp/LookinDerivedDataCLI build` 成功。
+- 本轮接口回包留档：
+  - 最新 `get_selected_view_context` 原始响应已落盘：
+    - `lookin-mcp/tmp/get_selected_view_context_raw_latest.json`
+  - 调用状态：`ok=true`，`status_code=200`。
+
+### 进展（继续 M2：Dashboard 卡片联动）
+
+- 右侧 Dashboard 已接入 `Requirement Binding` 自定义卡片注入逻辑：
+  - 文件：`Lookin-Develop/LookinClient/Dashboard/LKDashboardViewController.m`
+  - 在 selectedItem reload 时，基于当前节点 token（`nodeId=<oid> class=<rawClassName>`）过滤匹配 requirement records。
+  - 命中记录后动态追加 `Requirement Binding` 卡片，包含 3 个字段：`Requirement / Description / Bindings`（均为只读字符串）。
+- 三处通知联动已补齐：
+  - `Hierarchy`、`Preview` 的 bind/unbind 仍发送 `NotificationName_RequirementBindingDidChange`。
+  - `Dashboard` 新增同通知监听，并按 `sessionId` 过滤后刷新当前选中项卡片。
+- 工具栏 MCP 状态指示已落地：
+  - 文件：`Lookin-Develop/LookinClient/Toolbar/LKWindowToolbarHelper.{h,m}`、`Lookin-Develop/LookinClient/Static/LKStaticWindowController.m`
+  - Static 主窗口工具栏新增 `MCP` 状态项，实时显示 `Service(On/Off) / Port / Session(On/Off)`，并在 tooltip 展示 `sessionId`（若可用）。
+- `IMPLEMENTATION_PLAN.md` 已勾选：
+  - M2 `右侧 Dashboard 新增 Requirement Binding 卡片`
+  - M2 `三处联动通知`
+  - M2 `工具栏 MCP 状态指示`
+- 已完成 M1 手工冒烟：
+  - 直接调用 `lookin.health / lookin.get_selected_view_context / lookin.capture_selected_view_screenshot` 三个 tool，均返回成功且字段完整。
+  - 额外跑了测试脚本：`pytest lookin-mcp/tests/test_functional.py -k 'F_001 or F_002 or F_007' -q`，结果 `3 passed`。
+- 补充了 MCP HTTP 读链路鲁棒性修复（`LKMCPServerRuntime.m`）：
+  - `accept` 后将 client socket 切回 blocking。
+  - `recv` 读取时对 `EINTR/EAGAIN/EWOULDBLOCK` 做重试，降低高频调用下误判 BAD_REQUEST 的概率。
+- 当前测试结论（最新）：
+  - `pytest lookin-mcp/tests/test_functional.py -q` => `7 passed, 1 skipped`
+  - `pytest lookin-mcp/tests/test_exceptions.py -q` => `5 passed, 3 skipped`
+  - `pytest lookin-mcp/tests/test_performance.py -q`、`pytest lookin-mcp/tests/test_stability.py -q` 仍有间歇性失败：高频 `urllib` 调用下出现 `HTTP 400 + ConnectionResetError`（M3 风险项，待继续收敛）。
+
+### 进展（提交前快照）
+
+- 已完成工程接线：
+  - `Lookin-Develop/Lookin.xcodeproj/project.pbxproj` 已加入 `LookinMCP` 新增文件与编译项。
+  - `Lookin-Develop/LookinClient/AppDelegate.m` 已接入 `LKMCPServerRuntime` 启停（默认端口 `4010`）。
+- 已完成后端主链路：
+  - MCP Runtime 支持 `POST /mcp/tool`，返回 `result.structuredContent` / `error.data`。
+  - Tool 覆盖 `health/context/screenshot/set/get requirement` 五项。
+- 已完成 FR-2 右键入口（第一版）：
+  - 左侧 `Hierarchy` 与中间 `3D/预览` 均新增 `Requirement Binding >` 菜单。
+  - 支持 `Bind to ...` / `Unbind from ...` 并写回 `RequirementBindingStore`。
+- 当前阻塞：
+  - 本地 `xcodebuild` 仍因工程依赖缺失失败：`ReactiveObjC/ReactiveObjC.h`（`LookinClient_PrefixHeader.pch:14`）。
+
+### 进展（续）
+
+- 完成 `LKMCPServerRuntime` 本地回环 HTTP 接入：
+  - 新增 `POST /mcp/tool` 处理链路（JSON 入参：`name/arguments`）。
+  - 返回 MCP 兼容结构：成功 `result.structuredContent`，失败 `error.data`。
+  - 支持端口占用时有限端口回退（默认端口 + 20）。
+  - 运行态补齐 `sessionId` 更新与 `stop` 清理。
+- 强化 FR-1 约束：
+  - `get_selected_view_context` 对 `customInfo`/无 dashboard 属性节点返回 `LOOKIN_MCP_BAD_ARGUMENT`，避免“部分成功”。
+- 补齐截图参数校验：
+  - `highlightSelectedRegion` 仅接受布尔值。
+  - `scale` 仅接受 `> 0` 的数字。
+- 左侧/中间右键菜单新增 `Requirement Binding` 入口（第一版）：
+  - `LKHierarchyView.menuNeedsUpdate` 注入 `Requirement Binding >` 子菜单。
+  - `LKPreviewController.menuNeedsUpdate` 注入 `Requirement Binding >` 子菜单。
+  - 子菜单支持 `Bind to ...` 与 `Unbind from ...`（基于 `RequirementBindingStore` 持久层）。
+  - 绑定更新后发送 `NotificationName_RequirementBindingDidChange`。
+- `IMPLEMENTATION_PLAN.md` 已同步勾选：
+  - M1 后端链路（runtime/router/health/context/screenshot/error）均已完成；
+  - M2 中 store 与 `set/get requirement` 服务主流程已完成；
+  - UI 联动与工具栏状态仍待实现。
+
+### 验证情况
+
+- `xcodebuild -list -project Lookin.xcodeproj` 可读取目标与 scheme。
+- `xcodebuild build` 受当前环境依赖阻断（`LookinClient_PrefixHeader.pch` 缺少 `ReactiveObjC/ReactiveObjC.h`），尚未进入完整可编译状态。
+
+### 进展
+
+- 完成 TDD 测试目录骨架与用例脚本（F/E/P/S 全覆盖，20 条用例可被 `pytest` 收集）。
+- 本地创建 `.venv` 并安装 `pytest`，测试收集命令可执行。
+- 新增 MCP 基础实现目录：`Lookin-Develop/LookinClient/MCP/LookinMCP/`。
+- 按 `IMPLEMENTATION_PLAN.md` 第 1 节落地 13 个文件（`Runtime / Router / Error / ContextService / RequirementBindingService / Store / Notifications`）。
+- 更新 `IMPLEMENTATION_PLAN.md`：第 1 节“新增文件”已勾选完成。
+
+### 关键文件
+
+- `lookin-mcp/tests/`
+- `Lookin-Develop/LookinClient/MCP/LookinMCP/`
+- `lookin-mcp/IMPLEMENTATION_PLAN.md`
+
+### 当前状态
+
+- MCP 代码已落盘，但尚未完成 Xcode 工程接线（未加入 `project.pbxproj` 编译清单）。
+- 运行时尚未接入 `AppDelegate`，HTTP Tool 请求链路还未实际打通。
+
+### 下一步（建议）
+
+1. 将 `LookinMCP` 文件加入 `Lookin.xcodeproj`。
+2. 在 `AppDelegate` 接入 `LKMCPServerRuntime` 启停。
+3. 先打通 `lookin.health` 端到端，再逐个转绿 `context/screenshot` 和 requirement binding 用例。
+
+---
+
+## 记录模板
+
+```md
+## YYYY-MM-DD
+### 进展
+- ...
+
+### 关键文件
+- `path/to/file`
+
+### 问题/风险
+- ...
+
+### 下一步
+1. ...
+```

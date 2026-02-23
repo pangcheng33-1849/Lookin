@@ -6,3 +6,6 @@ Lookin.xcworkspace/xcuserdata
 DerivedData/
 Gemfile
 Gemfile.lock
+lookin-mcp/tmp/
+lookin-mcp/tests/.pytest_cache/
+lookin-mcp/tests/__pycache__/
