@@ -16,6 +16,7 @@
 #import "NSString+Score.h"
 #import "LookinDashboardBlueprint.h"
 #import "LKPreferenceManager.h"
+#import "LKMCPServerRuntime.h"
 @import AppCenter;
 @import AppCenterAnalytics;
 @import AppCenterCrashes;
@@ -27,6 +28,8 @@
 @end
 
 @implementation AppDelegate
+
+static const NSUInteger kLookinMCPDefaultPort = 4010;
 
 - (void)applicationWillFinishLaunching:(NSNotification *)notification {
     [[LKAppMenuManager sharedInstance] setup];
@@ -51,6 +54,12 @@
     [LKConnectionManager sharedInstance];
     if (!self.launchedToOpenFile) {
         [[LKNavigationManager sharedInstance] showLaunch];
+    }
+
+    NSError *mcpStartError = nil;
+    BOOL mcpStarted = [[LKMCPServerRuntime sharedInstance] startWithPort:kLookinMCPDefaultPort error:&mcpStartError];
+    if (!mcpStarted) {
+        NSLog(@"[LookinMCP] Failed to start runtime: %@", mcpStartError);
     }
     
     [self resolveAppCenterKey];
@@ -84,6 +93,8 @@
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
+    [[LKMCPServerRuntime sharedInstance] stop];
+    
     // 清理打开 UIImageView 的图片时创建的临时文件
     NSArray<NSString *> *tempImageFilesToDelete = [LKHelper sharedInstance].tempImageFiles;
     if (tempImageFilesToDelete.count == 0) {

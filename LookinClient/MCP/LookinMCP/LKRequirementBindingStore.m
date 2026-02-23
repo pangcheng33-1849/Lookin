@@ -394,7 +394,7 @@ static NSString * const LKMCPBindingFieldBindings = @"bindings";
     CGFloat contentTop = topBarY - margin;
     CGFloat contentHeight = contentTop - contentBottom;
 
-    CGFloat tableWidth = 380;
+    CGFloat tableWidth = 620;
     self.tableScrollView.frame = NSMakeRect(margin, contentBottom, tableWidth, contentHeight);
 
     CGFloat editorX = CGRectGetMaxX(self.tableScrollView.frame) + margin;
