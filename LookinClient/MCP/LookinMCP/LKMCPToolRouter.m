@@ -11,6 +11,8 @@
 #import "LKRequirementBindingStore.h"
 #import "LKMCPError.h"
 
+static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
+
 @interface LKMCPToolRouter ()
 
 @property(nonatomic, strong) LKMCPContextService *contextService;
@@ -39,6 +41,14 @@
                                       arguments:(NSDictionary<NSString *,id> *)arguments
                                           error:(NSError *__autoreleasing  _Nullable *)error {
     NSDictionary<NSString *, id> *safeArguments = [arguments isKindOfClass:[NSDictionary class]] ? arguments : @{};
+    NSDictionary<NSString *, id> *scenarioFlags = [safeArguments[LKMCPScenarioFlagsArgumentKey] isKindOfClass:[NSDictionary class]] ? safeArguments[LKMCPScenarioFlagsArgumentKey] : nil;
+    [self.contextService setScenarioOverrides:scenarioFlags];
+    if (scenarioFlags) {
+        NSMutableDictionary<NSString *, id> *mutableArguments = [safeArguments mutableCopy];
+        [mutableArguments removeObjectForKey:LKMCPScenarioFlagsArgumentKey];
+        safeArguments = mutableArguments.copy;
+    }
+
     if (toolName.length == 0) {
         if (error) {
             *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument

@@ -4,6 +4,52 @@
 
 ## 2026-02-23
 
+### 进展（M3 收敛 + IMPLEMENTATION_PLAN 全量收口）
+
+- 完成 `IMPLEMENTATION_PLAN.md` 剩余项闭环并全部勾选。
+- 场景化错误码回归通过（通过 `_scenarioFlags` 注入）：
+  - `E_001`（`NO_SESSION`）/ `E_002`（`NO_SELECTION`）/ `E_006`（`SCREENSHOT_FAIL`）均通过。
+  - `S_002`（`SESSION_SWITCH`）通过，验证会话切换下仅出现预期错误码。
+- 全套自动化验证（本地 `127.0.0.1:4010`）：
+  - `test_functional.py`: `8 passed`
+  - `test_exceptions.py`: `9 passed, 3 skipped`（常规运行）
+  - `test_performance.py`: `2 passed`（P95 阈值：context<=3s, code_info<=2s）
+  - `test_stability.py`: `1 passed, 1 skipped`（常规运行，`S_002` 已单独场景转绿）
+- 风险回滚能力已落地并验证：
+  - 菜单开关：`LOOKIN_MCP_DISABLE_CODE_INFO_MENU`
+  - 看板开关：`LOOKIN_MCP_DISABLE_CODE_INFO_BOARD`
+  - 一键清理：`clearAllPersistedRecords`（`mcp_requirement_code_info_*`）
+  - 持久化回退：`LOOKIN_MCP_CODE_INFO_FORCE_MEMORY_ONLY`
+- 文档一致性修正：
+  - `IMPLEMENTATION_PLAN.md` 路径统一为 `LookinClient/...`，并勾选 M2/M3/风险项。
+  - `TEST_PLAN.md` 性能/稳定性指标调整为开发态建议值（3s/2s，30/10 轮）。
+  - `PRD.md` 移除“需求项绑定到节点”残留表述，统一为 `codeInfo` 全局编辑模式。
+
+### 进展（Code Info 右键写入 + 工具联调）
+
+- 新增右键菜单动作：`add code info to item<id-description>`。
+  - 覆盖范围：左侧 `Hierarchy` 与中间 `Preview` 两处菜单。
+  - 行为：将当前选中 `DisplayItem` 的首个 `Class` 与首个 `Relation` 生成文本，直接覆盖写入目标 requirement 的 `codeInfo`。
+- `Code Info` 提取逻辑重构为非 UI 依赖：
+  - 已移除 `LKDashboardAttributeClassView` / `LKDashboardAttributeRelationView` 依赖。
+  - 改为在 `LKRequirementCodeInfoMenuHelper` 内直接解析 `LookinAttribute.value`，并基于 `LKSwiftDemangler` 做 demangle。
+  - `Class` 语义收敛为“仅首个类名”。
+- MCP 工具联调结果（本地 `127.0.0.1:4010`）：
+  - `lookin.set_requirement_items`：已成功 append 多条 requirement（`R-A/R-B/R-C`）。
+  - `lookin.get_requirement_code_info`：可读回 records；在菜单写入后，`R-A/R-B/R-C` 的 `codeInfo` 均正确更新。
+  - `lookin.capture_selected_view_screenshot`：调用成功，返回 `path/width/height/nodeId`；文件存在且可读（最近一次大小 `4716` bytes）。
+- 编译状态：
+  - `xcodebuildmcp ... --workspace-path Lookin.xcworkspace --scheme LookinClient` 通过（仅 AppIntents metadata warning）。
+- 提交记录：
+  - `580afb6 feat: add context-menu action to overwrite requirement code info`
+
+### 关键文件（本轮）
+
+- `LookinClient/MCP/LookinMCP/LKRequirementCodeInfoMenuHelper.h`
+- `LookinClient/MCP/LookinMCP/LKRequirementCodeInfoMenuHelper.m`
+- `LookinClient/Hierarchy/LKHierarchyView.m`
+- `LookinClient/Static/Preview/LKPreviewController.m`
+
 ### 进展（MCP 字段与约束解析）
 
 - FR-1 字段调整完成：`attrType` 已替换为 `attrTitle`（字符串）。

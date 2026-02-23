@@ -204,6 +204,36 @@ def test_F_007_capture_selected_view_screenshot(
 
 
 @pytest.mark.functional
-@pytest.mark.manual
-def test_F_008_requirement_binding_ui_sync() -> None:
-    pytest.skip("F-008 is manual: validate Code Info UI sync across board + left tree + center preview menus")
+def test_F_008_code_info_visible_within_1s(
+    mcp_client: MCPTestClient,
+    active_session: dict,
+) -> None:
+    _ = active_session
+    rid = _new_req_id("F8")
+    append = mcp_client.invoke(
+        "lookin.set_requirement_items",
+        {
+            "operation": "append",
+            "items": [{"requirementId": rid, "description": "F8 SLA"}],
+        },
+    )
+    assert append.ok, f"append failed: {append.error or append.raw}"
+
+    found = False
+    deadline = time.monotonic() + 1.0
+    try:
+        while time.monotonic() <= deadline:
+            result = mcp_client.invoke("lookin.get_requirement_code_info")
+            assert result.ok, f"get code info failed: {result.error or result.raw}"
+            records = result.content.get("records", [])
+            found = any(record.get("requirementId") == rid for record in records)
+            if found:
+                break
+            time.sleep(0.05)
+    finally:
+        mcp_client.invoke(
+            "lookin.set_requirement_items",
+            {"operation": "remove", "items": [{"requirementId": rid}]},
+        )
+
+    assert found, "new requirement item was not visible within 1s"

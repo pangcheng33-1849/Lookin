@@ -17,6 +17,10 @@ def _env_float(name: str, default: float) -> float:
     except ValueError:
         return default
 
+def _env_flag(name: str) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
 
 @dataclass
 class ToolResult:
@@ -46,9 +50,19 @@ class MCPTestClient:
         )
 
     def invoke(self, tool_name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
+        safe_arguments = dict(arguments or {})
+        scenario_flags = {
+            "LOOKIN_MCP_SCENARIO_NO_SESSION": _env_flag("LOOKIN_MCP_SCENARIO_NO_SESSION"),
+            "LOOKIN_MCP_SCENARIO_NO_SELECTION": _env_flag("LOOKIN_MCP_SCENARIO_NO_SELECTION"),
+            "LOOKIN_MCP_SCENARIO_SCREENSHOT_FAIL": _env_flag("LOOKIN_MCP_SCENARIO_SCREENSHOT_FAIL"),
+            "LOOKIN_MCP_SCENARIO_SESSION_SWITCH": _env_flag("LOOKIN_MCP_SCENARIO_SESSION_SWITCH"),
+        }
+        if any(scenario_flags.values()):
+            safe_arguments["_scenarioFlags"] = scenario_flags
+
         payload = {
             "name": tool_name,
-            "arguments": arguments or {},
+            "arguments": safe_arguments,
         }
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         request = urllib.request.Request(

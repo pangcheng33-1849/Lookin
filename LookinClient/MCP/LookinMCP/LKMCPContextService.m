@@ -21,13 +21,50 @@
 #import "LookinAutoLayoutConstraint+LookinClient.h"
 @import AppKit;
 
+static BOOL LKMCPScenarioFlagEnabled(NSString *flagName) {
+    NSString *raw = [[NSProcessInfo processInfo].environment[flagName] lowercaseString] ?: @"";
+    if (raw.length == 0) {
+        return NO;
+    }
+    static NSSet<NSString *> *truthyValues = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken,^{
+        truthyValues = [NSSet setWithArray:@[@"1", @"true", @"yes", @"on"]];
+    });
+    return [truthyValues containsObject:raw];
+}
+
+static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
+    static NSUInteger counter = 0;
+    @synchronized([LKMCPContextService class]) {
+        counter += 1;
+        return (counter % 2 == 1);
+    }
+}
+
 @interface LKMCPContextService ()
+
+@property(nonatomic, copy) NSDictionary<NSString *, id> *scenarioOverrides;
 
 @end
 
 @implementation LKMCPContextService
 
+- (void)setScenarioOverrides:(NSDictionary<NSString *,id> *)scenarioOverrides {
+    if ([scenarioOverrides isKindOfClass:[NSDictionary class]]) {
+        _scenarioOverrides = [scenarioOverrides copy];
+    } else {
+        _scenarioOverrides = @{};
+    }
+}
+
 - (NSString *)currentSessionId {
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SESSION"]) {
+        return nil;
+    }
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_SESSION_SWITCH"] && LKMCPShouldDropSessionForSwitchScenario()) {
+        return nil;
+    }
     LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
     if (!app) {
         return nil;
@@ -39,6 +76,14 @@
     LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
     NSMutableDictionary<NSString *, id> *payload = [NSMutableDictionary dictionary];
     payload[@"timestamp"] = [LKMCPError currentTimestampMs];
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SESSION"]) {
+        payload[@"status"] = @"no_session";
+        return payload;
+    }
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_SESSION_SWITCH"] && LKMCPShouldDropSessionForSwitchScenario()) {
+        payload[@"status"] = @"no_session";
+        return payload;
+    }
     if (!app) {
         payload[@"status"] = @"no_session";
         return payload;
@@ -107,6 +152,16 @@
                                        message:@"Selected node does not support full dashboard context."
                                    recoverable:YES
                                           hint:@"Select a regular UIKit view node and retry."
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SELECTION"]) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
+                                       message:@"No selected view in current session."
+                                   recoverable:YES
+                                          hint:@"Please select a view in Lookin and retry."
                                      sessionId:sessionId];
         }
         return nil;
@@ -183,6 +238,26 @@
         }
         return nil;
     }
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SELECTION"]) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
+                                       message:@"No selected view in current session."
+                                   recoverable:YES
+                                          hint:@"Please select a view in Lookin and retry."
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
+    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_SCREENSHOT_FAIL"]) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeScreenshotFailed
+                                       message:@"Failed to write screenshot file."
+                                   recoverable:YES
+                                          hint:@"Check cache directory permission and retry."
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
 
     NSImage *image = selectedItem.groupScreenshot;
     if (!image) {
@@ -249,6 +324,25 @@
         @"format": @"png",
         @"timestamp": timestamp
     };
+}
+
+- (BOOL)_isScenarioEnabled:(NSString *)flagName {
+    id override = self.scenarioOverrides[flagName];
+    if ([override isKindOfClass:[NSNumber class]]) {
+        return [(NSNumber *)override boolValue];
+    }
+    if ([override isKindOfClass:[NSString class]]) {
+        NSString *raw = [(NSString *)override lowercaseString];
+        if (raw.length > 0) {
+            static NSSet<NSString *> *truthyValues = nil;
+            static dispatch_once_t onceToken;
+            dispatch_once(&onceToken,^{
+                truthyValues = [NSSet setWithArray:@[@"1", @"true", @"yes", @"on"]];
+            });
+            return [truthyValues containsObject:raw];
+        }
+    }
+    return LKMCPScenarioFlagEnabled(flagName);
 }
 
 - (NSDictionary<NSString *, id> *)_buildSelectedNode:(LookinDisplayItem *)item childrenDepth:(NSInteger)childrenDepth {

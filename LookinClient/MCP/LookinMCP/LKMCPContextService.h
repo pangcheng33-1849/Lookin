@@ -11,6 +11,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface LKMCPContextService : NSObject
 
+- (void)setScenarioOverrides:(nullable NSDictionary<NSString *, id> *)scenarioOverrides;
+
 - (nullable NSString *)currentSessionId;
 
 - (NSDictionary<NSString *, id> *)healthStructuredContent;

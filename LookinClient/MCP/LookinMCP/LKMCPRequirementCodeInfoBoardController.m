@@ -49,6 +49,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 @property(nonatomic, strong) NSButton *addButton;
 @property(nonatomic, strong) NSButton *deleteButton;
 @property(nonatomic, strong) NSButton *reloadButton;
+@property(nonatomic, strong) NSButton *clearAllButton;
 @property(nonatomic, strong) NSTextField *sessionLabel;
 @property(nonatomic, strong) NSTextField *statusLabel;
 
@@ -137,9 +138,11 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     self.addButton = [self _makeButtonWithTitle:NSLocalizedString(@"Add", nil) action:@selector(_handleAdd:)];
     self.deleteButton = [self _makeButtonWithTitle:NSLocalizedString(@"Delete", nil) action:@selector(_handleDelete:)];
     self.reloadButton = [self _makeButtonWithTitle:NSLocalizedString(@"Reload", nil) action:@selector(_handleReload:)];
+    self.clearAllButton = [self _makeButtonWithTitle:NSLocalizedString(@"Clear All", nil) action:@selector(_handleClearAll:)];
     [self.topBar addSubview:self.addButton];
     [self.topBar addSubview:self.deleteButton];
     [self.topBar addSubview:self.reloadButton];
+    [self.topBar addSubview:self.clearAllButton];
 
     self.sessionLabel = [NSTextField labelWithString:@""];
     self.sessionLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
@@ -234,7 +237,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     __block CGFloat buttonX = 0;
     CGFloat buttonWidth = 92;
     CGFloat buttonHeight = 28;
-    NSArray<NSButton *> *buttons = @[self.addButton, self.deleteButton, self.reloadButton];
+    NSArray<NSButton *> *buttons = @[self.addButton, self.deleteButton, self.reloadButton, self.clearAllButton];
     [buttons enumerateObjectsUsingBlock:^(NSButton *obj, NSUInteger idx, BOOL *stop) {
         obj.frame = NSMakeRect(buttonX, (topBarHeight - buttonHeight) / 2.0, buttonWidth, buttonHeight);
         buttonX += buttonWidth + 8;
@@ -495,6 +498,18 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     [self _setStatus:NSLocalizedString(@"Reloaded from store.", nil)];
 }
 
+- (void)_handleClearAll:(id)sender {
+    [self.store clearAllPersistedRecords];
+    [self _reloadFromStore];
+    [self _setStatus:NSLocalizedString(@"Cleared all Code Info items.", nil)];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
+                                                        object:self
+                                                      userInfo:@{
+        LKMCPRequirementCodeInfoChangedSessionIdKey: self.sessionId ?: @"",
+        LKMCPRequirementCodeInfoChangedOperationKey: @"clear"
+    }];
+}
+
 #pragma mark - NSTableViewDataSource
 
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView {
@@ -588,4 +603,3 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 @end
-

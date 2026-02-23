@@ -25,6 +25,7 @@ typedef NS_ENUM(NSUInteger, LKMCPCodeInfoTTLMode) {
 - (void)saveRecords:(NSArray<NSDictionary<NSString *, NSString *> *> *)records sessionId:(NSString *)sessionId;
 - (void)removeRecordsForSessionId:(NSString *)sessionId;
 - (void)cleanupExpiredRecords;
+- (void)clearAllPersistedRecords;
 - (void)showRequirementCodeInfoBoardForSessionId:(NSString *)sessionId;
 
 @end

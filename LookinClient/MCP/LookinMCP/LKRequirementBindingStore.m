@@ -12,6 +12,7 @@
 static NSString * const LKMCPCodeInfoPersistencePrefix = @"mcp_requirement_code_info_";
 static NSString * const LKMCPCodeInfoPayloadSavedAtKey = @"savedAtMs";
 static NSString * const LKMCPCodeInfoPayloadRecordsKey = @"records";
+static NSString * const LKMCPCodeInfoForceMemoryOnlyDefaultsKey = @"mcp_code_info_force_memory_only";
 
 static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoFieldDescription = @"description";
@@ -55,7 +56,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         return records.copy;
     }
 
-    if (self.ttlMode == LKMCPCodeInfoTTLModeSessionOnly) {
+    if (![self _shouldPersistToUserDefaults]) {
         return @[];
     }
 
@@ -80,7 +81,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
     NSString *persistedKey = [self _persistedKeyForSessionId:sessionId];
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    if (self.ttlMode == LKMCPCodeInfoTTLModeSessionOnly) {
+    if (![self _shouldPersistToUserDefaults]) {
         [defaults removeObjectForKey:persistedKey];
         return;
     }
@@ -98,7 +99,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 - (void)cleanupExpiredRecords {
-    if (self.ttlMode == LKMCPCodeInfoTTLModeSessionOnly) {
+    if (![self _shouldPersistToUserDefaults]) {
         return;
     }
     NSTimeInterval ttlSeconds = [self _ttlSeconds];
@@ -127,6 +128,17 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     }];
 }
 
+- (void)clearAllPersistedRecords {
+    [self.memoryStore removeAllObjects];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary<NSString *, id> *allDefaults = [defaults dictionaryRepresentation];
+    [allDefaults enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
+        if ([key hasPrefix:LKMCPCodeInfoPersistencePrefix]) {
+            [defaults removeObjectForKey:key];
+        }
+    }];
+}
+
 - (void)showRequirementCodeInfoBoardForSessionId:(NSString *)sessionId {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!self.codeInfoBoardController) {
@@ -150,6 +162,35 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         default:
             return 0;
     }
+}
+
+- (BOOL)_shouldPersistToUserDefaults {
+    if (self.ttlMode == LKMCPCodeInfoTTLModeSessionOnly) {
+        return NO;
+    }
+
+    NSString *envRaw = [[NSProcessInfo processInfo].environment[@"LOOKIN_MCP_CODE_INFO_FORCE_MEMORY_ONLY"] lowercaseString] ?: @"";
+    if (envRaw.length > 0) {
+        return ![self _isTruthyString:envRaw];
+    }
+
+    id defaultsValue = [[NSUserDefaults standardUserDefaults] objectForKey:LKMCPCodeInfoForceMemoryOnlyDefaultsKey];
+    if ([defaultsValue respondsToSelector:@selector(stringValue)]) {
+        NSString *raw = [[defaultsValue stringValue] lowercaseString];
+        if (raw.length > 0) {
+            return ![self _isTruthyString:raw];
+        }
+    }
+    return YES;
+}
+
+- (BOOL)_isTruthyString:(NSString *)raw {
+    static NSSet<NSString *> *truthyValues = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken,^{
+        truthyValues = [NSSet setWithArray:@[@"1", @"true", @"yes", @"on"]];
+    });
+    return [truthyValues containsObject:[raw lowercaseString] ?: @""];
 }
 
 - (NSArray<NSDictionary<NSString *, NSString *> *> *)_normalizeRecordsArray:(NSArray *)records {

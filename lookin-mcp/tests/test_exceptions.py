@@ -95,7 +95,11 @@ def test_E_004_remove_nonexistent_requirement(
     [
         ("lookin.get_selected_view_context", {"childrenDepth": -1}),
         ("lookin.set_requirement_items", {"operation": "upsert", "items": [{"requirementId": "X"}]}),
+        ("lookin.set_requirement_items", {"operation": "append", "items": [{"requirementId": "X"}]}),
+        ("lookin.set_requirement_items", {"operation": "remove", "items": [{}]}),
         ("lookin.capture_selected_view_screenshot", {"format": "jpg"}),
+        ("lookin.capture_selected_view_screenshot", {"format": "png", "scale": 0}),
+        ("lookin.capture_selected_view_screenshot", {"format": "png", "highlightSelectedRegion": "yes"}),
     ],
 )
 def test_E_005_bad_argument(

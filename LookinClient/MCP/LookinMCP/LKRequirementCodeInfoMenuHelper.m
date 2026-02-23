@@ -26,6 +26,26 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
 static NSString * const LKMCPCodeInfoMenuPayloadRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoMenuPayloadDisplayItem = @"displayItem";
+static NSString * const LKMCPDisableCodeInfoMenuDefaultsKey = @"mcp_disable_code_info_menu";
+static NSString * const LKMCPDisableCodeInfoBoardDefaultsKey = @"mcp_disable_code_info_board";
+
+static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
+    NSString *raw = [[NSProcessInfo processInfo].environment[envName] lowercaseString];
+    if (raw.length == 0) {
+        raw = [[[NSUserDefaults standardUserDefaults] objectForKey:defaultsKey] respondsToSelector:@selector(stringValue)]
+            ? [[[[NSUserDefaults standardUserDefaults] objectForKey:defaultsKey] stringValue] lowercaseString]
+            : @"";
+    }
+    if (raw.length == 0) {
+        return NO;
+    }
+    static NSSet<NSString *> *truthy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken,^{
+        truthy = [NSSet setWithArray:@[@"1", @"true", @"yes", @"on"]];
+    });
+    return [truthy containsObject:raw];
+}
 
 @implementation LKRequirementCodeInfoMenuHelper
 
@@ -35,6 +55,9 @@ static NSString * const LKMCPCodeInfoMenuPayloadDisplayItem = @"displayItem";
                           target:(id)target
                  openBoardAction:(SEL)openBoardAction
                addCodeInfoAction:(SEL)addCodeInfoAction {
+    if (LKMCPFlagEnabled(@"LOOKIN_MCP_DISABLE_CODE_INFO_MENU", LKMCPDisableCodeInfoMenuDefaultsKey)) {
+        return;
+    }
     if (!displayItem) {
         return;
     }
@@ -92,6 +115,9 @@ static NSString * const LKMCPCodeInfoMenuPayloadDisplayItem = @"displayItem";
 }
 
 + (void)openCodeInfoBoardForDataSource:(LKHierarchyDataSource *)dataSource {
+    if (LKMCPFlagEnabled(@"LOOKIN_MCP_DISABLE_CODE_INFO_BOARD", LKMCPDisableCodeInfoBoardDefaultsKey)) {
+        return;
+    }
     NSString *sessionId = [self _sessionIdFromDataSource:dataSource] ?: @"";
     [[LKRequirementCodeInfoStore sharedInstance] showRequirementCodeInfoBoardForSessionId:sessionId];
 }
