@@ -9,6 +9,7 @@
 
 @class LKHierarchyDataSource;
 @class LookinDisplayItem;
+@class NSMenuItem;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -18,9 +19,12 @@ NS_ASSUME_NONNULL_BEGIN
                      displayItem:(LookinDisplayItem * _Nullable)displayItem
                       dataSource:(LKHierarchyDataSource * _Nullable)dataSource
                           target:(id)target
-                 openBoardAction:(SEL)openBoardAction;
+                 openBoardAction:(SEL)openBoardAction
+               addCodeInfoAction:(SEL)addCodeInfoAction;
 
 + (void)openCodeInfoBoardForDataSource:(LKHierarchyDataSource * _Nullable)dataSource;
++ (BOOL)addCodeInfoFromMenuItem:(NSMenuItem *)menuItem
+                      dataSource:(LKHierarchyDataSource * _Nullable)dataSource;
 
 @end
 

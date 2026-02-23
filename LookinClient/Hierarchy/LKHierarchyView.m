@@ -332,7 +332,8 @@ extern NSString *const LKAppShowConsoleNotificationName;
                                                   displayItem:displayItem
                                                    dataSource:self.dataSource
                                                        target:self
-                                              openBoardAction:@selector(_handleOpenRequirementCodeInfoBoard:)];
+                                              openBoardAction:@selector(_handleOpenRequirementCodeInfoBoard:)
+                                            addCodeInfoAction:@selector(_handleAddCodeInfoToRequirementItem:)];
     
     // 复制文字
     NSMutableArray<NSString *> *stringsToCopy = [NSMutableArray array];
@@ -499,6 +500,10 @@ extern NSString *const LKAppShowConsoleNotificationName;
 
 - (void)_handleOpenRequirementCodeInfoBoard:(NSMenuItem *)menuItem {
     [LKRequirementCodeInfoMenuHelper openCodeInfoBoardForDataSource:self.dataSource];
+}
+
+- (void)_handleAddCodeInfoToRequirementItem:(NSMenuItem *)menuItem {
+    [LKRequirementCodeInfoMenuHelper addCodeInfoFromMenuItem:menuItem dataSource:self.dataSource];
 }
 
 - (void)_handleSearchCloseButton {

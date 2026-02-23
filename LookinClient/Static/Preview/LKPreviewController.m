@@ -685,7 +685,8 @@ extern NSString *const LKAppShowConsoleNotificationName;
                                                   displayItem:displayItem
                                                    dataSource:self.dataSource
                                                        target:self
-                                              openBoardAction:@selector(_handleOpenRequirementCodeInfoBoard:)];
+                                              openBoardAction:@selector(_handleOpenRequirementCodeInfoBoard:)
+                                            addCodeInfoAction:@selector(_handleAddCodeInfoToRequirementItem:)];
     
     if (displayItem.isExpandable) {
         if (displayItem.isExpanded) {
@@ -775,6 +776,10 @@ extern NSString *const LKAppShowConsoleNotificationName;
 
 - (void)_handleOpenRequirementCodeInfoBoard:(NSMenuItem *)menuItem {
     [LKRequirementCodeInfoMenuHelper openCodeInfoBoardForDataSource:self.dataSource];
+}
+
+- (void)_handleAddCodeInfoToRequirementItem:(NSMenuItem *)menuItem {
+    [LKRequirementCodeInfoMenuHelper addCodeInfoFromMenuItem:menuItem dataSource:self.dataSource];
 }
 
 - (void)_handleExpandRecursively:(NSMenuItem *)menuItem {

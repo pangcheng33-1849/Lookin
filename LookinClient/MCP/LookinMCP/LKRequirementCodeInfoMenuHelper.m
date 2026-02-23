@@ -9,10 +9,23 @@
 #import "LKHierarchyDataSource.h"
 #import "LookinDisplayItem.h"
 #import "LKRequirementBindingStore.h"
+#import "LKMCPNotifications.h"
 #import "LKAppsManager.h"
 #import "LKInspectableApp.h"
 #import "LookinAppInfo.h"
 #import "LookinHierarchyInfo.h"
+#import "LookinAttrIdentifiers.h"
+#import "LookinAttributesGroup.h"
+#import "LookinAttributesSection.h"
+#import "LookinAttribute.h"
+#import "Lookin-Swift.h"
+
+static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
+static NSString * const LKMCPCodeInfoFieldDescription = @"description";
+static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
+
+static NSString * const LKMCPCodeInfoMenuPayloadRequirementId = @"requirementId";
+static NSString * const LKMCPCodeInfoMenuPayloadDisplayItem = @"displayItem";
 
 @implementation LKRequirementCodeInfoMenuHelper
 
@@ -20,7 +33,8 @@
                      displayItem:(LookinDisplayItem *)displayItem
                       dataSource:(LKHierarchyDataSource *)dataSource
                           target:(id)target
-                 openBoardAction:(SEL)openBoardAction {
+                 openBoardAction:(SEL)openBoardAction
+               addCodeInfoAction:(SEL)addCodeInfoAction {
     if (!displayItem) {
         return;
     }
@@ -56,13 +70,19 @@
         })];
     } else {
         [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
-            NSString *rid = record[@"requirementId"] ?: @"";
-            NSString *desc = record[@"description"] ?: @"";
-            NSString *title = desc.length > 0 ? [NSString stringWithFormat:@"%@ - %@", rid, desc] : rid;
+            NSString *rid = record[LKMCPCodeInfoFieldRequirementId] ?: @"";
+            NSString *desc = record[LKMCPCodeInfoFieldDescription] ?: @"";
+            NSString *title = desc.length > 0 ? [NSString stringWithFormat:@"%@-%@", rid, desc] : rid;
             [submenu addItem:({
                 NSMenuItem *item = [NSMenuItem new];
-                item.title = title;
-                item.enabled = NO;
+                item.title = [NSString stringWithFormat:NSLocalizedString(@"add code info to item<%@>", nil), title];
+                item.target = target;
+                item.action = addCodeInfoAction;
+                item.enabled = (rid.length > 0);
+                item.representedObject = @{
+                    LKMCPCodeInfoMenuPayloadRequirementId: rid ?: @"",
+                    LKMCPCodeInfoMenuPayloadDisplayItem: displayItem
+                };
                 item;
             })];
         }];
@@ -76,6 +96,53 @@
     [[LKRequirementCodeInfoStore sharedInstance] showRequirementCodeInfoBoardForSessionId:sessionId];
 }
 
++ (BOOL)addCodeInfoFromMenuItem:(NSMenuItem *)menuItem
+                      dataSource:(LKHierarchyDataSource *)dataSource {
+    NSDictionary *payload = [menuItem.representedObject isKindOfClass:[NSDictionary class]] ? (NSDictionary *)menuItem.representedObject : nil;
+    NSString *requirementId = [payload[LKMCPCodeInfoMenuPayloadRequirementId] isKindOfClass:[NSString class]] ? payload[LKMCPCodeInfoMenuPayloadRequirementId] : @"";
+    LookinDisplayItem *displayItem = [payload[LKMCPCodeInfoMenuPayloadDisplayItem] isKindOfClass:[LookinDisplayItem class]] ? payload[LKMCPCodeInfoMenuPayloadDisplayItem] : nil;
+    if (requirementId.length == 0 || !displayItem) {
+        return NO;
+    }
+
+    NSString *sessionId = [self _sessionIdFromDataSource:dataSource];
+    if (sessionId.length == 0) {
+        return NO;
+    }
+
+    NSString *codeInfo = [self _generatedCodeInfoTextFromDisplayItem:displayItem];
+    if (codeInfo.length == 0) {
+        return NO;
+    }
+
+    LKRequirementCodeInfoStore *store = [LKRequirementCodeInfoStore sharedInstance];
+    NSArray<NSDictionary<NSString *, NSString *> *> *records = [store recordsForSessionId:sessionId];
+    if (records.count == 0) {
+        return NO;
+    }
+
+    NSMutableArray<NSDictionary<NSString *, NSString *> *> *mutableRecords = [records mutableCopy];
+    NSUInteger targetIndex = [mutableRecords indexOfObjectPassingTest:^BOOL(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
+        return [obj[LKMCPCodeInfoFieldRequirementId] isEqualToString:requirementId];
+    }];
+    if (targetIndex == NSNotFound) {
+        return NO;
+    }
+
+    NSMutableDictionary<NSString *, NSString *> *updatedRecord = [mutableRecords[targetIndex] mutableCopy];
+    updatedRecord[LKMCPCodeInfoFieldCodeInfo] = codeInfo;
+    mutableRecords[targetIndex] = updatedRecord;
+
+    [store saveRecords:[mutableRecords copy] sessionId:sessionId];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
+                                                        object:nil
+                                                      userInfo:@{
+        LKMCPRequirementCodeInfoChangedSessionIdKey: sessionId ?: @"",
+        LKMCPRequirementCodeInfoChangedOperationKey: @"edit"
+    }];
+    return YES;
+}
+
 + (NSString *)_sessionIdFromDataSource:(LKHierarchyDataSource *)dataSource {
     LookinAppInfo *dataSourceAppInfo = dataSource.rawHierarchyInfo.appInfo;
     if (dataSourceAppInfo) {
@@ -87,6 +154,127 @@
         return nil;
     }
     return [NSString stringWithFormat:@"%@", @(app.appInfo.appInfoIdentifier)];
+}
+
++ (NSString *)_generatedCodeInfoTextFromDisplayItem:(LookinDisplayItem *)displayItem {
+    NSString *firstClass = [self _firstClassTextFromDisplayItem:displayItem];
+    NSString *firstRelation = [self _firstRelationTextFromDisplayItem:displayItem];
+
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    if (firstClass.length > 0) {
+        [lines addObject:[NSString stringWithFormat:@"Class: %@", firstClass]];
+    }
+    if (firstRelation.length > 0) {
+        [lines addObject:[NSString stringWithFormat:@"Relation: %@", firstRelation]];
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
+
++ (NSString *)_firstClassTextFromDisplayItem:(LookinDisplayItem *)displayItem {
+    LookinAttribute *classAttr = [self _attributeWithIdentifier:LookinAttr_Class_Class_Class fromDisplayItem:displayItem];
+    if (!classAttr) {
+        return nil;
+    }
+
+    if (![classAttr.value isKindOfClass:[NSArray class]]) {
+        return nil;
+    }
+    id firstList = [(NSArray *)classAttr.value firstObject];
+    if ([firstList isKindOfClass:[NSArray class]]) {
+        NSString *firstRawClass = [self _trimmedTextFromRawValue:[(NSArray *)firstList firstObject]];
+        if (firstRawClass.length == 0) {
+            return nil;
+        }
+        NSString *demangled = [LKSwiftDemangler completedParseWithInput:firstRawClass];
+        return [self _trimmedTextFromRawValue:demangled];
+    }
+    if ([firstList isKindOfClass:[NSString class]]) {
+        NSString *demangled = [LKSwiftDemangler completedParseWithInput:firstList];
+        return [self _trimmedTextFromRawValue:demangled];
+    }
+    return nil;
+}
+
++ (NSString *)_firstRelationTextFromDisplayItem:(LookinDisplayItem *)displayItem {
+    LookinAttribute *relationAttr = [self _attributeWithIdentifier:LookinAttr_Relation_Relation_Relation fromDisplayItem:displayItem];
+    if (!relationAttr) {
+        return nil;
+    }
+
+    if ([relationAttr.value isKindOfClass:[NSArray class]]) {
+        NSString *firstRaw = [self _trimmedTextFromRawValue:[(NSArray *)relationAttr.value firstObject]];
+        if (firstRaw.length == 0) {
+            return nil;
+        }
+        return [self _demangleRelationText:firstRaw];
+    }
+    return nil;
+}
+
++ (LookinAttribute *)_attributeWithIdentifier:(NSString *)identifier fromDisplayItem:(LookinDisplayItem *)displayItem {
+    if (identifier.length == 0 || !displayItem) {
+        return nil;
+    }
+    NSArray<LookinAttributesGroup *> *groups = [displayItem queryAllAttrGroupList];
+    for (LookinAttributesGroup *group in groups) {
+        for (LookinAttributesSection *section in group.attrSections) {
+            for (LookinAttribute *attribute in section.attributes) {
+                if ([attribute.identifier isEqualToString:identifier]) {
+                    return attribute;
+                }
+            }
+        }
+    }
+    return nil;
+}
+
++ (NSString *)_trimmedTextFromRawValue:(id)rawValue {
+    if (![rawValue isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+    NSString *text = [(NSString *)rawValue stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    return text.length > 0 ? text : nil;
+}
+
++ (NSString *)_demangleRelationText:(NSString *)rawText {
+    if (rawText.length == 0) {
+        return nil;
+    }
+    NSString *trimmed = [self _trimmedTextFromRawValue:rawText];
+    if (trimmed.length == 0) {
+        return nil;
+    }
+
+    {
+        // Pattern: (AAA : BBB *)
+        NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"\\(\\s*(\\w+)\\s*:\\s*(\\w+)\\s*\\*\\s*\\)" options:0 error:nil];
+        NSTextCheckingResult *match = [regex firstMatchInString:trimmed options:0 range:NSMakeRange(0, trimmed.length)];
+        if (match && match.numberOfRanges == 3) {
+            NSString *raw1 = [trimmed substringWithRange:[match rangeAtIndex:1]];
+            NSString *raw2 = [trimmed substringWithRange:[match rangeAtIndex:2]];
+            NSString *demangled1 = [LKSwiftDemangler simpleParseWithInput:raw1];
+            NSString *demangled2 = [LKSwiftDemangler simpleParseWithInput:raw2];
+
+            NSString *newText = [trimmed stringByReplacingCharactersInRange:[match rangeAtIndex:1] withString:demangled1 ?: raw1];
+            newText = [newText stringByReplacingOccurrencesOfString:raw2 withString:demangled2 ?: raw2];
+            return [self _trimmedTextFromRawValue:newText];
+        }
+    }
+
+    {
+        // Pattern: (AAA *)
+        NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"\\(\\s*(\\w+)\\s*\\*\\s*\\)" options:0 error:nil];
+        NSTextCheckingResult *match = [regex firstMatchInString:trimmed options:0 range:NSMakeRange(0, trimmed.length)];
+        if (match && match.numberOfRanges >= 2) {
+            NSRange range = [match rangeAtIndex:1];
+            NSString *rawClassName = [trimmed substringWithRange:range];
+            NSString *demangled = [LKSwiftDemangler simpleParseWithInput:rawClassName];
+            NSString *newText = [trimmed stringByReplacingCharactersInRange:range withString:demangled ?: rawClassName];
+            return [self _trimmedTextFromRawValue:newText];
+        }
+    }
+
+    return trimmed;
 }
 
 @end
