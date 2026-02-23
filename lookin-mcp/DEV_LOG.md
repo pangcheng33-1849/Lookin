@@ -23,18 +23,18 @@
 
 ### 进展（继续 M2：Dashboard 卡片联动）
 
-- 右侧 Dashboard 已接入 `Requirement Binding` 自定义卡片注入逻辑：
+- 右侧 Dashboard 已接入 `Code Info` 自定义卡片注入逻辑：
   - 文件：`Lookin-Develop/LookinClient/Dashboard/LKDashboardViewController.m`
   - 在 selectedItem reload 时，基于当前节点 token（`nodeId=<oid> class=<rawClassName>`）过滤匹配 requirement records。
-  - 命中记录后动态追加 `Requirement Binding` 卡片，包含 3 个字段：`Requirement / Description / Bindings`（均为只读字符串）。
+  - 命中记录后动态追加 `Code Info` 卡片，包含 3 个字段：`Requirement / Description / Bindings`（均为只读字符串）。
 - 三处通知联动已补齐：
-  - `Hierarchy`、`Preview` 的 bind/unbind 仍发送 `NotificationName_RequirementBindingDidChange`。
+  - `Hierarchy`、`Preview` 的 edit 仍发送 `NotificationName_RequirementCodeInfoDidChange`。
   - `Dashboard` 新增同通知监听，并按 `sessionId` 过滤后刷新当前选中项卡片。
 - 工具栏 MCP 状态指示已落地：
   - 文件：`Lookin-Develop/LookinClient/Toolbar/LKWindowToolbarHelper.{h,m}`、`Lookin-Develop/LookinClient/Static/LKStaticWindowController.m`
   - Static 主窗口工具栏新增 `MCP` 状态项，实时显示 `Service(On/Off) / Port / Session(On/Off)`，并在 tooltip 展示 `sessionId`（若可用）。
 - `IMPLEMENTATION_PLAN.md` 已勾选：
-  - M2 `右侧 Dashboard 新增 Requirement Binding 卡片`
+  - M2 `右侧 Dashboard 新增 Code Info 卡片`
   - M2 `三处联动通知`
   - M2 `工具栏 MCP 状态指示`
 - 已完成 M1 手工冒烟：
@@ -57,8 +57,8 @@
   - MCP Runtime 支持 `POST /mcp/tool`，返回 `result.structuredContent` / `error.data`。
   - Tool 覆盖 `health/context/screenshot/set/get requirement` 五项。
 - 已完成 FR-2 右键入口（第一版）：
-  - 左侧 `Hierarchy` 与中间 `3D/预览` 均新增 `Requirement Binding >` 菜单。
-  - 支持 `Bind to ...` / `Unbind from ...` 并写回 `RequirementBindingStore`。
+  - 左侧 `Hierarchy` 与中间 `3D/预览` 均新增 `Code Info >` 菜单。
+  - 菜单入口可打开 Code Info 看板并写回 `RequirementCodeInfoStore`。
 - 当前阻塞：
   - 本地 `xcodebuild` 仍因工程依赖缺失失败：`ReactiveObjC/ReactiveObjC.h`（`LookinClient_PrefixHeader.pch:14`）。
 
@@ -74,11 +74,11 @@
 - 补齐截图参数校验：
   - `highlightSelectedRegion` 仅接受布尔值。
   - `scale` 仅接受 `> 0` 的数字。
-- 左侧/中间右键菜单新增 `Requirement Binding` 入口（第一版）：
-  - `LKHierarchyView.menuNeedsUpdate` 注入 `Requirement Binding >` 子菜单。
-  - `LKPreviewController.menuNeedsUpdate` 注入 `Requirement Binding >` 子菜单。
-  - 子菜单支持 `Bind to ...` 与 `Unbind from ...`（基于 `RequirementBindingStore` 持久层）。
-  - 绑定更新后发送 `NotificationName_RequirementBindingDidChange`。
+- 左侧/中间右键菜单新增 `Code Info` 入口（第一版）：
+  - `LKHierarchyView.menuNeedsUpdate` 注入 `Code Info >` 子菜单。
+  - `LKPreviewController.menuNeedsUpdate` 注入 `Code Info >` 子菜单。
+  - 子菜单可打开看板并展示 requirement 列表（基于 `RequirementCodeInfoStore` 持久层）。
+  - 绑定更新后发送 `NotificationName_RequirementCodeInfoDidChange`。
 - `IMPLEMENTATION_PLAN.md` 已同步勾选：
   - M1 后端链路（runtime/router/health/context/screenshot/error）均已完成；
   - M2 中 store 与 `set/get requirement` 服务主流程已完成；
@@ -94,7 +94,7 @@
 - 完成 TDD 测试目录骨架与用例脚本（F/E/P/S 全覆盖，20 条用例可被 `pytest` 收集）。
 - 本地创建 `.venv` 并安装 `pytest`，测试收集命令可执行。
 - 新增 MCP 基础实现目录：`Lookin-Develop/LookinClient/MCP/LookinMCP/`。
-- 按 `IMPLEMENTATION_PLAN.md` 第 1 节落地 13 个文件（`Runtime / Router / Error / ContextService / RequirementBindingService / Store / Notifications`）。
+- 按 `IMPLEMENTATION_PLAN.md` 第 1 节落地 13 个文件（`Runtime / Router / Error / ContextService / RequirementCodeInfoService / Store / Notifications`）。
 - 更新 `IMPLEMENTATION_PLAN.md`：第 1 节“新增文件”已勾选完成。
 
 ### 关键文件
@@ -112,7 +112,7 @@
 
 1. 将 `LookinMCP` 文件加入 `Lookin.xcodeproj`。
 2. 在 `AppDelegate` 接入 `LKMCPServerRuntime` 启停。
-3. 先打通 `lookin.health` 端到端，再逐个转绿 `context/screenshot` 和 requirement binding 用例。
+3. 先打通 `lookin.health` 端到端，再逐个转绿 `context/screenshot` 和 code info 用例。
 
 ---
 

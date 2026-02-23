@@ -1,5 +1,5 @@
 //
-//  LKRequirementBindingService.m
+//  LKRequirementCodeInfoService.m
 //  Lookin
 //
 //  Created by Codex on 2026/2/23.
@@ -10,19 +10,19 @@
 #import "LKMCPError.h"
 #import "LKMCPNotifications.h"
 
-NSString * const NotificationName_RequirementBindingDidChange = @"NotificationName_RequirementBindingDidChange";
-NSString * const LKMCPRequirementBindingChangedSessionIdKey = @"sessionId";
-NSString * const LKMCPRequirementBindingChangedOperationKey = @"operation";
+NSString * const NotificationName_RequirementCodeInfoDidChange = @"NotificationName_RequirementCodeInfoDidChange";
+NSString * const LKMCPRequirementCodeInfoChangedSessionIdKey = @"sessionId";
+NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
 
-@interface LKRequirementBindingService ()
+@interface LKRequirementCodeInfoService ()
 
-@property(nonatomic, strong) LKRequirementBindingStore *store;
+@property(nonatomic, strong) LKRequirementCodeInfoStore *store;
 
 @end
 
-@implementation LKRequirementBindingService
+@implementation LKRequirementCodeInfoService
 
-- (instancetype)initWithStore:(LKRequirementBindingStore *)store {
+- (instancetype)initWithStore:(LKRequirementCodeInfoStore *)store {
     self = [super init];
     if (self) {
         _store = store;
@@ -98,7 +98,7 @@ NSString * const LKMCPRequirementBindingChangedOperationKey = @"operation";
         [normalized addObject:@{
             @"requirementId": rid,
             @"description": desc,
-            @"bindings": @""
+            @"codeInfo": @""
         }];
     }
 
@@ -135,7 +135,7 @@ NSString * const LKMCPRequirementBindingChangedOperationKey = @"operation";
                     *error = [LKMCPError errorWithCode:LKMCPErrorCodeRequirementNotFound
                                                message:[NSString stringWithFormat:@"Requirement not found: %@", rid]
                                            recoverable:YES
-                                                  hint:@"Call get_requirement_bindings and remove existing requirementId only."
+                                                  hint:@"Call get_requirement_code_info and remove existing requirementId only."
                                              sessionId:sessionId];
                 }
                 return nil;
@@ -145,17 +145,17 @@ NSString * const LKMCPRequirementBindingChangedOperationKey = @"operation";
         [normalized enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
             [toDelete addObject:obj[@"requirementId"]];
         }];
-        [records filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary<NSString *, NSString *> *record, NSDictionary<NSString *,id> *bindings) {
+        [records filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary<NSString *, NSString *> *record, NSDictionary<NSString *,id> *_) {
             return ![toDelete containsObject:record[@"requirementId"]];
         }]];
     }
 
     [self.store saveRecords:records sessionId:sessionId];
-    [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementBindingDidChange
+    [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
                                                         object:nil
                                                       userInfo:@{
-        LKMCPRequirementBindingChangedSessionIdKey: sessionId ?: @"",
-        LKMCPRequirementBindingChangedOperationKey: operation
+        LKMCPRequirementCodeInfoChangedSessionIdKey: sessionId ?: @"",
+        LKMCPRequirementCodeInfoChangedOperationKey: operation
     }];
 
     NSMutableArray<NSDictionary<NSString *, NSString *> *> *responseItems = [NSMutableArray array];
@@ -174,15 +174,16 @@ NSString * const LKMCPRequirementBindingChangedOperationKey = @"operation";
     };
 }
 
-- (NSDictionary<NSString *,id> *)getRequirementBindingsWithSessionId:(NSString *)sessionId
+- (NSDictionary<NSString *,id> *)getRequirementCodeInfoWithSessionId:(NSString *)sessionId
                                                                 error:(NSError *__autoreleasing  _Nullable *)error {
+    (void)error;
     NSArray<NSDictionary<NSString *, NSString *> *> *records = [self.store recordsForSessionId:sessionId];
     NSMutableArray<NSDictionary<NSString *, NSString *> *> *result = [NSMutableArray arrayWithCapacity:records.count];
     [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
         [result addObject:@{
             @"requirementId": obj[@"requirementId"] ?: @"",
             @"description": obj[@"description"] ?: @"",
-            @"bindings": obj[@"bindings"] ?: @""
+            @"codeInfo": obj[@"codeInfo"] ?: @""
         }];
     }];
     return @{

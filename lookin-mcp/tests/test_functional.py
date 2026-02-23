@@ -156,9 +156,9 @@ def test_F_005_remove_requirement_items(
         assert remove.content.get("operation") == "remove"
         assert remove.content.get("total") == before_total - 1
 
-        bindings = mcp_client.invoke("lookin.get_requirement_bindings")
-        assert bindings.ok, f"get bindings failed: {bindings.error or bindings.raw}"
-        bound_ids = {record["requirementId"] for record in bindings.content.get("records", [])}
+        code_info = mcp_client.invoke("lookin.get_requirement_code_info")
+        assert code_info.ok, f"get code info failed: {code_info.error or code_info.raw}"
+        bound_ids = {record["requirementId"] for record in code_info.content.get("records", [])}
         assert rid2 not in bound_ids
     finally:
         mcp_client.invoke(
@@ -171,19 +171,19 @@ def test_F_005_remove_requirement_items(
 
 
 @pytest.mark.functional
-def test_F_006_get_requirement_bindings_contract(
+def test_F_006_get_requirement_code_info_contract(
     mcp_client: MCPTestClient,
     active_session: dict,
 ) -> None:
     _ = active_session
-    result = mcp_client.invoke("lookin.get_requirement_bindings")
-    assert result.ok, f"get bindings failed: {result.error or result.raw}"
+    result = mcp_client.invoke("lookin.get_requirement_code_info")
+    assert result.ok, f"get code info failed: {result.error or result.raw}"
 
     records = result.content.get("records")
     assert isinstance(records, list)
     for record in records:
-        assert set(record.keys()) == {"requirementId", "description", "bindings"}
-        assert isinstance(record["bindings"], str)
+        assert set(record.keys()) == {"requirementId", "description", "codeInfo"}
+        assert isinstance(record["codeInfo"], str)
 
 
 @pytest.mark.functional
@@ -206,4 +206,4 @@ def test_F_007_capture_selected_view_screenshot(
 @pytest.mark.functional
 @pytest.mark.manual
 def test_F_008_requirement_binding_ui_sync() -> None:
-    pytest.skip("F-008 is manual: validate UI sync across right panel + left tree + center preview menus")
+    pytest.skip("F-008 is manual: validate Code Info UI sync across board + left tree + center preview menus")

@@ -14,22 +14,22 @@
 @interface LKMCPToolRouter ()
 
 @property(nonatomic, strong) LKMCPContextService *contextService;
-@property(nonatomic, strong) LKRequirementBindingService *bindingService;
+@property(nonatomic, strong) LKRequirementCodeInfoService *codeInfoService;
 
 @end
 
 @implementation LKMCPToolRouter
 
 - (instancetype)initWithContextService:(LKMCPContextService * _Nullable)contextService
-                        bindingService:(LKRequirementBindingService * _Nullable)bindingService {
+                       codeInfoService:(LKRequirementCodeInfoService * _Nullable)codeInfoService {
     self = [super init];
     if (self) {
         _contextService = contextService ?: [[LKMCPContextService alloc] init];
-        if (bindingService) {
-            _bindingService = bindingService;
+        if (codeInfoService) {
+            _codeInfoService = codeInfoService;
         } else {
-            LKRequirementBindingStore *store = [LKRequirementBindingStore sharedInstance];
-            _bindingService = [[LKRequirementBindingService alloc] initWithStore:store];
+            LKRequirementCodeInfoStore *store = [LKRequirementCodeInfoStore sharedInstance];
+            _codeInfoService = [[LKRequirementCodeInfoService alloc] initWithStore:store];
         }
     }
     return self;
@@ -75,10 +75,10 @@
     }
 
     if ([toolName isEqualToString:@"lookin.set_requirement_items"]) {
-        return [self.bindingService setRequirementItemsWithArguments:safeArguments sessionId:sessionId error:error];
+        return [self.codeInfoService setRequirementItemsWithArguments:safeArguments sessionId:sessionId error:error];
     }
-    if ([toolName isEqualToString:@"lookin.get_requirement_bindings"]) {
-        return [self.bindingService getRequirementBindingsWithSessionId:sessionId error:error];
+    if ([toolName isEqualToString:@"lookin.get_requirement_code_info"]) {
+        return [self.codeInfoService getRequirementCodeInfoWithSessionId:sessionId error:error];
     }
 
     if (error) {

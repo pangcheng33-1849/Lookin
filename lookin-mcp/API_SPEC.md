@@ -1,7 +1,7 @@
 # Lookin-MCP API 规格（P0）
 
 版本：`v1`  
-适用范围：`lookin.health / lookin.get_selected_view_context / lookin.set_requirement_items / lookin.get_requirement_bindings / lookin.capture_selected_view_screenshot`
+适用范围：`lookin.health / lookin.get_selected_view_context / lookin.set_requirement_items / lookin.get_requirement_code_info / lookin.capture_selected_view_screenshot`
 
 ## 1. 目标
 
@@ -24,7 +24,7 @@
 - `timestamp`：Unix 毫秒时间戳（`int64`）。
 - `sessionId`：字符串，来自 `appInfoIdentifier`。
 - `nodeId`：字符串，优先取 `viewOid`，否则取 `layerOid`。
-- `bindings`：`String`，**不限制格式**，由调用方/LLM 自行理解。
+- `codeInfo`：`String`，**不限制格式**，由调用方/LLM 自行理解。
 
 ## 2.3 统一错误模型
 
@@ -414,7 +414,7 @@
 
 ## 3.3 `lookin.set_requirement_items`
 
-用途：增删需求项列表（append/remove），并刷新绑定上下文。
+用途：增删需求项列表（append/remove），并刷新 `codeInfo` 上下文。
 
 ### 参数 Schema
 
@@ -511,9 +511,9 @@
 }
 ```
 
-## 3.4 `lookin.get_requirement_bindings`
+## 3.4 `lookin.get_requirement_code_info`
 
-用途：拉取 requirement 与节点绑定映射。
+用途：拉取 requirement 与 `codeInfo` 映射。
 
 ### 参数 Schema
 
@@ -540,11 +540,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["requirementId", "description", "bindings"],
+        "required": ["requirementId", "description", "codeInfo"],
         "properties": {
           "requirementId": { "type": "string" },
           "description": { "type": "string" },
-          "bindings": { "type": "string" }
+          "codeInfo": { "type": "string" }
         },
         "additionalProperties": false
       }
@@ -564,12 +564,12 @@
     {
       "requirementId": "R-1",
       "description": "首页右上角搜索按钮",
-      "bindings": "nodeId=30001;label=searchButton"
+      "codeInfo": "SearchButtonView, SearchIconView; file=Modules/Search/SearchHeaderView.m"
     },
     {
       "requirementId": "R-2",
       "description": "点赞按钮文案与图标",
-      "bindings": "DUXDiggButton|DUXDiggButtonLabel|DUXDiggButtonImage"
+      "codeInfo": "DUXDiggButton|DUXDiggButtonLabel|DUXDiggButtonImage"
     }
   ]
 }
@@ -708,7 +708,7 @@
 
 - 与 `lookin-mcp/PRD.md` 对齐：
   - FR-1 以 Dashboard 属性结构为核心输出
-  - FR-2 `bindings` 为 `String` 且格式不限制
+  - FR-2 `codeInfo` 为 `String` 且格式不限制
   - FR-3 返回截图文件路径
   - FR-4 所有 Tool 返回 `sessionId/timestamp`（失败时可选）
 - 与 `lookin-mcp/TECHNICAL_DESIGN.md` 对齐：

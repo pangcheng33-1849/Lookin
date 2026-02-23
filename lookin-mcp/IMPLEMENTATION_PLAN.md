@@ -2,9 +2,9 @@
 
 ## 0. 执行约束
 
-- [x] 仅实现 5 个 Tool：`health / get_selected_view_context / set_requirement_items / get_requirement_bindings / capture_selected_view_screenshot`。
+- [x] 仅实现 5 个 Tool：`health / get_selected_view_context / set_requirement_items / get_requirement_code_info / capture_selected_view_screenshot`。
 - [x] `set_requirement_items` 仅支持 `operation=append/remove`。
-- [x] `get_requirement_bindings` 仅返回 `requirementId/description/bindings`。
+- [x] `get_requirement_code_info` 仅返回 `requirementId/description/codeInfo`。
 - [x] 新增文件尽量统一放在：`Lookin-Develop/LookinClient/MCP/LookinMCP/`。
 
 ## 1. 新增文件（统一目录）
@@ -19,8 +19,8 @@
 - [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKMCPContextService.m`
 - [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKRequirementBindingService.h`
 - [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKRequirementBindingService.m`
-- [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/RequirementBindingStore.h`
-- [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/RequirementBindingStore.m`
+- [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKRequirementBindingStore.h`
+- [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKRequirementBindingStore.m`
 - [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKMCPNotifications.h`
 
 ## 2. M1（health/context/screenshot）
@@ -33,34 +33,34 @@
 - [x] 打通统一错误码：`NO_SESSION / NO_SELECTION / BAD_ARGUMENT / SCREENSHOT_FAILED`。
 - [x] 手工冒烟：3 个 Tool 可连续调用且输出字段完整。
 
-## 3. M2（Requirement Binding 全链路）
+## 3. M2（Code Info 全链路）
 
-- [x] 实现 `RequirementBindingStore`（内存 + UserDefaults + TTL 档位）。
+- [x] 实现 `RequirementCodeInfoStore`（内存 + UserDefaults + TTL 档位）。
 - [x] 实现 `set_requirement_items`（append/remove 主流程）。
 - [x] `append` 校验 `requirementId + description`。
 - [x] `remove` 校验 `requirementId` 存在性。
 - [x] 同请求内重复 `requirementId` 返回 `DUP_REQUIREMENT_ID`。
-- [x] 实现 `get_requirement_bindings`（读取前失效清理，仅返回 3 字段）。
-- [x] 右侧 Dashboard 新增 `Requirement Binding` 卡片（字段：Requirement/Description/Bindings）。
-- [x] 左侧 `LKHierarchyView.menuNeedsUpdate` 增加 `Requirement Binding >`。
-- [x] 中间 `LKPreviewController.menuNeedsUpdate` 增加 `Requirement Binding >`。
-- [x] 三处联动通知：`NotificationName_RequirementBindingDidChange`。
+- [x] 实现 `get_requirement_code_info`（仅返回 3 字段）。
+- [x] 新增独立 `Code Info` 看板（字段：Requirement ID / Description / Code Info）。
+- [x] 左侧 `LKHierarchyView.menuNeedsUpdate` 增加 `Code Info >`。
+- [x] 中间 `LKPreviewController.menuNeedsUpdate` 增加 `Code Info >`。
+- [x] 三处联动通知：`NotificationName_RequirementCodeInfoDidChange`。
 - [ ] 联动 SLA：操作后 1s 内三处状态可见一致。
 - [x] 工具栏 MCP 状态指示（服务状态/端口/会话状态）。
 
 ## 4. M3（收敛与验收，开发态非阻塞）
 
 - [ ] `get_selected_view_context` 性能建议值 P95 <= 3s（开发态）。
-- [ ] `get_requirement_bindings` 性能建议值 P95 <= 2s（开发态）。
+- [ ] `get_requirement_code_info` 性能建议值 P95 <= 2s（开发态）。
 - [ ] 连续调用建议值 30 次无崩溃、无不可恢复状态（开发态）。
 - [ ] 错误码触发路径逐条验证并补齐边界用例。
 - [ ] 文档一致性检查：`API_SPEC.md / UI_SPEC.md / PRD.md / TEST_PLAN.md`。
 
 ## 5. 现有文件改造点（本期实际）
 
-- [x] `Lookin-Develop/LookinClient/Hierarchy/LKHierarchyView.m`（`menuNeedsUpdate` 菜单注入 + bind/unbind 写回）
-- [x] `Lookin-Develop/LookinClient/Static/Preview/LKPreviewController.m`（`menuNeedsUpdate` 菜单注入 + bind/unbind 写回）
-- [x] `Lookin-Develop/LookinClient/Dashboard/LKDashboardViewController.m`（注入 `Requirement Binding` 卡片 + 监听变更通知）
+- [x] `Lookin-Develop/LookinClient/Hierarchy/LKHierarchyView.m`（`menuNeedsUpdate` 菜单注入 + 打开看板入口）
+- [x] `Lookin-Develop/LookinClient/Static/Preview/LKPreviewController.m`（`menuNeedsUpdate` 菜单注入 + 打开看板入口）
+- [x] `Lookin-Develop/LookinClient/MCP/LookinMCP/LKRequirementBindingStore.m`（Code Info 看板 + 编辑即写入 + 通知）
 - [x] `Lookin-Develop/LookinClient/Toolbar/LKWindowToolbarHelper.h`
 - [x] `Lookin-Develop/LookinClient/Toolbar/LKWindowToolbarHelper.m`（新增 `MCP` 状态工具栏项）
 - [x] `Lookin-Develop/LookinClient/Static/LKStaticWindowController.m`（状态项接线，实时显示服务/端口/会话）
@@ -69,5 +69,5 @@
 
 - [ ] 菜单注入异常时可通过开关关闭新增菜单，仅保留 MCP 后端。
 - [ ] Dashboard 卡片异常时可回退卡片注册，不影响既有属性卡片。
-- [ ] 会话刷新造成脏数据时可一键清理 `mcp_requirement_bindings_*`。
+- [ ] 会话刷新造成脏数据时可一键清理 `mcp_requirement_code_info_*`。
 - [ ] 持久化异常时可退回“仅会话内内存态”。

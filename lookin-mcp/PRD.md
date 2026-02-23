@@ -29,7 +29,7 @@
 - 上下文拉取成功率 >= 99%（按 Tool 调用统计）。
 - 单次上下文查询 P95 响应时间 <= 2s（不含首次连接）。
 - 使用该能力的需求中，Agent 首轮改动命中目标视图/文件的比例提升（目标：相对基线提升 >= 30%）。
-- 需求关联映射（自然语言 -> 视图）中，已完成关联项占比 >= 90%（在实际使用会话内）。
+- 需求映射（自然语言 -> 代码信息）中，已完成维护项占比 >= 90%（在实际使用会话内）。
 
 ## 4. 目标用户与核心场景
 
@@ -41,7 +41,7 @@
 ### 4.2 核心场景
 
 - 场景 A：工程师在 Lookin 选中待修改控件，让 Agent 读取结构化视图信息后改代码。
-- 场景 B：工程师把 PRD 中的自然语言需求项逐条绑定到真实视图，Agent 按绑定结果实施修改。
+- 场景 B：工程师维护 PRD 需求项对应的 `codeInfo`，Agent 按代码线索实施修改。
 - 场景 C：工程师让 Agent 获取选中视图截图，用于确认修改对象和改动前状态。
 
 ## 5. 范围定义
@@ -50,13 +50,13 @@
 
 - Lookin macOS 客户端内嵌 MCP Server。
 - 暴露 P0 Tool：获取选中视图信息、需求项关联、获取选中视图截图。
-- 在 Lookin 内提供“需求项列表 + 手动关联”基础交互。
-- 在 Lookin 内支持用户直接编辑 `bindings` 文本内容。
+- 在 Lookin 内提供“需求项列表 + 手动维护 Code Info”基础交互。
+- 在 Lookin 内支持用户直接编辑 `codeInfo` 文本内容。
 - 提供稳定的数据结构与错误码，供 Agent 可预测调用。
 
 ### 5.2 Out of Scope（本期不做）
 
-- Agent 自动识别并自动绑定视图（全自动映射）。
+- Agent 自动识别并自动推断 `codeInfo`（全自动映射）。
 - 自动修改代码并回写 IDE（仅提供上下文，不直接改代码）。
 - 脱离 Lookin 的独立桌面端工具。
 - Android/Web 等非 iOS 目标平台支持。
@@ -67,7 +67,7 @@
 - `选中视图`：用户当前在 Lookin 中高亮/选中的节点。
 - `视图节点 ID`：在当前调试会话中唯一标识某个视图节点的 ID。
 - `需求项`：来自 PRD/任务描述的自然语言条目（如“首页右上角搜索按钮”）。
-- `关联映射`：需求项与视图节点的一对一或一对多关系。
+- `关联映射`：需求项与相关代码信息（`codeInfo`）的映射关系。
 - `会话`：一次 Lookin 连接目标 App 并持续交互的上下文周期。
 
 ## 7. 用户流程
@@ -157,7 +157,7 @@
 ### FR-2 自然语言需求关联（P0）
 
 **用户故事**  
-作为 iOS 工程师，我希望把自然语言需求项绑定到视图节点，让 Agent 明确“改哪里”。
+作为 iOS 工程师，我希望维护“自然语言需求 -> 相关代码信息”的映射，便于 Agent 理解代码落点。
 
 **输入**
 
@@ -167,64 +167,60 @@
 
 **交互要求**
 
-- Lookin 侧展示需求项列表和关联状态。
-- 用户可将当前选中节点绑定到指定需求项。
-- 支持取消绑定、重新绑定。
-- 需求项与节点关系支持一对多（如“点赞按钮”可绑定 `DUXDiggButton`、`DUXDiggButtonLabel`、`DUXDiggButtonImage`）。
-- 用户可在 Lookin 内直接编辑 `bindings` 文本，并参与映射返回。
+- Lookin 侧展示需求项列表与 `codeInfo`。
+- `codeInfo` 表示相关代码信息（自然语言/路径/类名/方法名等），不要求与当前节点建立真实绑定关系。
+- 用户可在 Lookin 内直接编辑 `codeInfo` 文本，并参与映射返回。
 
 **表单交互（在现有 UI 界面上新增）**
 
 - 保持现有三栏布局不变（左：Hierarchy 树；中：3D/预览；右：Dashboard 属性面板）。
-- 在右侧 Dashboard 面板新增 `Requirement Binding` 表单卡片（与 Class/Relation/Layout 同级卡片样式）。
-- 在左侧 `Hierarchy` 树和中间 `3D/预览` 区域的右键菜单中，均新增 `Requirement Binding` 入口。
+- `Code Info` 作为独立看板窗口维护（全局表单）。
+- 在左侧 `Hierarchy` 树和中间 `3D/预览` 区域的右键菜单中，均新增 `Code Info` 入口。
 - 右键菜单行为：
-  - 一级菜单：`Requirement Binding >`
-  - 二级菜单：列出全部 requirement 项（显示 `requirementId` 与 `description` 摘要），点击后将“当前右键节点”绑定到对应 requirement。
-  - 若当前节点已绑定某 requirement，菜单中显示 `Unbind from <requirementId-description>`。
-  - 若 requirement 列表为空，`Requirement Binding` 菜单项置灰，并提示先调用 `set_requirement_items`。
-- 表单字段：
-  - `Requirement`：下拉选择（来自 `set_requirement_items`）。
-  - `Description`：只读展示当前需求项描述。
-  - `Bindings`：多行文本输入框（`String`，格式不限制）。
-- 表单操作：
-  - `添加自定义item`：允许用户手动添加Item，获取时可一并返回。
+  - 一级菜单：`Code Info >`
+  - 二级菜单：`Open Code Info Board…` + requirement 列表（只读展示 `requirementId - description`）。
+  - 若 requirement 列表为空，`Code Info` 菜单项置灰，并提示先调用 `set_requirement_items`。
+- 看板字段：
+  - `Requirement ID`：只读。
+  - `Description`：可编辑。
+  - `Code Info`：多行文本输入框（`String`，格式不限制）。
+- 看板操作：
+  - `Add`：新增行（自动生成默认 `requirementId`）。
+  - `Delete`：删除选中行。
+  - `Reload`：从 store 重载。
 - 状态同步：
-  - 右键菜单执行绑定/解绑后，右侧表单与需求项状态立即刷新。
-  - 右侧表单执行绑定/解绑后，两个右键菜单的可用项与状态立即刷新。
+  - 看板编辑后，左/中右键菜单与看板状态立即刷新。
 
 **交互图（示意）**
 
 ```mermaid
 flowchart LR
-    A["左侧 Hierarchy 右键节点"] --> R["Requirement Binding 菜单"]
-    B["中间 3D/预览 右键节点"] --> R
-    R --> C["选择 requirement / 执行绑定或解绑"]
-    C --> D["更新绑定映射"]
-    D --> E["右侧 Requirement Binding 表单刷新"]
-    D --> F["需求项状态刷新(未关联/已关联/失效)"]
-    E --> G["get_requirement_bindings 可读到最新结果"]
-    F --> G
+    A["左侧 Hierarchy 右键"] --> R["Code Info 菜单"]
+    B["中间 3D/预览 右键"] --> R
+    R --> C["Open Code Info Board"]
+    C --> D["编辑 Description/Code Info"]
+    D --> E["写入 store 并广播通知"]
+    E --> F["菜单/看板状态同步刷新"]
+    F --> G["get_requirement_code_info 可读到最新结果"]
 ```
 
 **输出**
 
-- Agent 可拉取完整映射：`[{requirementId, description, bindings}]`。
-- `bindings` 类型为 `String`，内容格式不做限制（由调用方与客户端自行约定）。
+- Agent 可拉取完整映射：`[{requirementId, description, codeInfo}]`。
+- `codeInfo` 类型为 `String`，内容格式不做限制（由调用方与客户端自行约定）。
 
 **异常与边界**
 
 - `requirementId` 重复时拒绝写入并报错。
-- 节点失效（会话刷新后不存在）时由服务端在读取前清理，不额外暴露状态字段。
-- `bindings` 允许为空字符串；为空时不阻塞绑定。
+- `codeInfo` 允许为空字符串；为空时不阻塞保存。
 
 **验收标准**
 
 - 10 条需求项内操作流畅、状态即时更新。
-- Agent 获取映射字段固定为 `requirementId/description/bindings`，无额外状态字段。
-- 用户更新 `bindings` 文本后，`get_requirement_bindings` 读取结果在 1s 内可见。
-- 表单卡片在现有右侧 Dashboard 面板可稳定使用，不影响既有属性卡片交互与渲染性能。
-- 左侧 `Hierarchy` 与中间 `3D/预览` 的右键菜单均可完成绑定/解绑，且与右侧表单状态一致。
+- Agent 获取映射字段固定为 `requirementId/description/codeInfo`，无额外状态字段。
+- 用户更新 `codeInfo` 文本后，`get_requirement_code_info` 读取结果在 1s 内可见。
+- Code Info 看板可稳定使用，不影响既有属性卡片交互与渲染性能。
+- 左侧 `Hierarchy` 与中间 `3D/预览` 的右键菜单可稳定打开 Code Info 看板并查看 requirement 列表。
 
 ### FR-3 获取选中视图截图（P0）
 
@@ -269,7 +265,7 @@ flowchart LR
 | `lookin.get_selected_view_context` | 获取当前选中视图结构化信息 | P0 |
 | `lookin.capture_selected_view_screenshot` | 获取当前选中视图截图 | P0 |
 | `lookin.set_requirement_items` | 增删需求项（append/remove） | P0 |
-| `lookin.get_requirement_bindings` | 拉取需求项与视图绑定映射 | P0 |
+| `lookin.get_requirement_code_info` | 拉取需求项与代码信息映射 | P0 |
 
 注：最终命名由技术方案确定，但能力边界需与上表一致。
 
@@ -324,13 +320,13 @@ flowchart LR
 ## 14. 风险与缓解
 
 - 视图节点与代码属性路径无法稳定映射：允许字段为空并标记可信度，避免误导 Agent。
-- 调试会话频繁变更导致绑定失效：引入失效状态和重绑机制。
+- 调试会话频繁变更导致数据不一致：读取前做有效性清理并限制会话隔离。
 - 大页面数据量过大：限制默认返回深度并支持按需展开参数。
 
 ## 15. 已确认决策
 
-- 需求项与节点关系允许一对多；并支持用户在 Lookin 客户端中直接编辑 `bindings` 文本。
+- `codeInfo` 不要求与具体节点建立真实绑定；由用户维护自然语言对应的相关代码信息。
 - 截图返回形式固定为文件路径。
-- 绑定数据生命周期为“默认会话内有效 + 可配置短期持久化”。
+- `codeInfo` 数据生命周期为“默认会话内有效 + 可配置短期持久化”。
 - 本期不支持 SwiftUI（受 Lookin 当前能力限制）。
 - 暂无团队既有标准；MCP 接口规范参考 Anthropic 官方 MCP 标准。

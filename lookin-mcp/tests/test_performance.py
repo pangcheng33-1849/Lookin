@@ -47,14 +47,14 @@ def test_P_001_selected_context_p95(
 
 
 @pytest.mark.performance
-def test_P_002_bindings_p95(
+def test_P_002_code_info_p95(
     mcp_client: MCPTestClient,
     active_session: dict,
 ) -> None:
     _ = active_session
-    threshold = float(os.getenv("LOOKIN_MCP_P95_BINDINGS_SEC", "2.0"))
-    req_count = int(os.getenv("LOOKIN_MCP_BINDINGS_REQ_COUNT", "50"))
-    read_count = int(os.getenv("LOOKIN_MCP_BINDINGS_READ_COUNT", "50"))
+    threshold = float(os.getenv("LOOKIN_MCP_P95_CODE_INFO_SEC", "2.0"))
+    req_count = int(os.getenv("LOOKIN_MCP_CODE_INFO_REQ_COUNT", "50"))
+    read_count = int(os.getenv("LOOKIN_MCP_CODE_INFO_READ_COUNT", "50"))
 
     prefix = f"P2-{int(time.time() * 1000)}"
     items = [
@@ -73,9 +73,9 @@ def test_P_002_bindings_p95(
         costs = []
         for _ in range(read_count):
             start = time.perf_counter()
-            result = mcp_client.invoke("lookin.get_requirement_bindings")
+            result = mcp_client.invoke("lookin.get_requirement_code_info")
             end = time.perf_counter()
-            assert result.ok, f"get bindings failed: {result.error or result.raw}"
+            assert result.ok, f"get code info failed: {result.error or result.raw}"
             costs.append(end - start)
 
         assert _p95(costs) <= threshold, f"P95={_p95(costs):.3f}s > {threshold:.3f}s"

@@ -1,5 +1,5 @@
 //
-//  LKRequirementBindingService.h
+//  LKRequirementCodeInfoService.h
 //  Lookin
 //
 //  Created by Codex on 2026/2/23.
@@ -9,17 +9,17 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class LKRequirementBindingStore;
+@class LKRequirementCodeInfoStore;
 
-@interface LKRequirementBindingService : NSObject
+@interface LKRequirementCodeInfoService : NSObject
 
-- (instancetype)initWithStore:(LKRequirementBindingStore *)store;
+- (instancetype)initWithStore:(LKRequirementCodeInfoStore *)store;
 
 - (nullable NSDictionary<NSString *, id> *)setRequirementItemsWithArguments:(NSDictionary<NSString *, id> *)arguments
                                                                    sessionId:(NSString *)sessionId
                                                                        error:(NSError **)error;
 
-- (nullable NSDictionary<NSString *, id> *)getRequirementBindingsWithSessionId:(NSString *)sessionId
+- (nullable NSDictionary<NSString *, id> *)getRequirementCodeInfoWithSessionId:(NSString *)sessionId
                                                                           error:(NSError **)error;
 
 @end

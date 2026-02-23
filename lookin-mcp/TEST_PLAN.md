@@ -7,7 +7,7 @@
   - `lookin.health`
   - `lookin.get_selected_view_context`
   - `lookin.set_requirement_items`（`append/remove`）
-  - `lookin.get_requirement_bindings`
+  - `lookin.get_requirement_code_info`
   - `lookin.capture_selected_view_screenshot`
 
 ## 2. 测试环境
@@ -15,7 +15,7 @@
 - 客户端：Lookin macOS 客户端（含 MCP 功能分支）。
 - 被测端：UIKit 应用（至少 1 个简单页面 + 1 个复杂页面）。
 - 会话形态：有会话 / 无会话 / 会话刷新后节点变化。
-- 数据准备：至少 10 条 requirement，覆盖绑定/解绑/删除。
+- 数据准备：至少 10 条 requirement，覆盖新增/编辑/删除与菜单刷新。
 
 ## 3. 用例模板
 
@@ -34,15 +34,15 @@
 | F-003 | 同 F-002 | `childrenDepth=0/1` 分别调用 | 结构提示字段随深度变化；主属性字段稳定 | 自动化 |
 | F-004 | requirement 列表为空 | 调用 `set_requirement_items(operation=append)` 增加 2 条 | 返回 `operation=append`，`total` 正确 | 自动化 |
 | F-005 | 已有 2 条 requirement | 调用 `set_requirement_items(operation=remove)` 删除 1 条 | 返回 `operation=remove`，`total` 减少，目标被删除 | 自动化 |
-| F-006 | 已完成绑定操作 | 调用 `get_requirement_bindings` | `records[]` 仅含 `requirementId/description/bindings` 三字段 | 自动化 |
+| F-006 | 已完成 requirement 维护 | 调用 `get_requirement_code_info` | `records[]` 仅含 `requirementId/description/codeInfo` 三字段 | 自动化 |
 | F-007 | 已选中视图 | 调用 `capture_selected_view_screenshot` | 返回本地 `path`，文件存在且可打开，宽高>0 | 自动化 |
-| F-008 | 右侧卡片/左右键菜单可用 | 在任一入口执行绑定/解绑 | 三处入口 1s 内状态一致 | 手工 |
+| F-008 | Code Info 看板/左右键菜单可用 | 在看板编辑 description/codeInfo | 三处入口 1s 内状态一致 | 手工 |
 
 ## 5. 异常测试用例
 
 | 用例ID | 场景 | 步骤 | 预期错误码 | 类型 |
 | --- | --- | --- | --- | --- |
-| E-001 | 无会话 | 调用 `health/context/bindings/screenshot` | `LOOKIN_MCP_NO_SESSION`（health 允许 `no_session` 成功态） | 自动化 |
+| E-001 | 无会话 | 调用 `health/context/codeInfo/screenshot` | `LOOKIN_MCP_NO_SESSION`（health 允许 `no_session` 成功态） | 自动化 |
 | E-002 | 无选中节点 | 调用 `get_selected_view_context` 或 `capture_selected_view_screenshot` | `LOOKIN_MCP_NO_SELECTION` | 自动化 |
 | E-003 | append 请求内重复 requirementId | 调用 `set_requirement_items(operation=append)` | `LOOKIN_MCP_DUP_REQUIREMENT_ID` | 自动化 |
 | E-004 | remove 不存在 requirementId | 调用 `set_requirement_items(operation=remove)` | `LOOKIN_MCP_REQUIREMENT_NOT_FOUND` | 自动化 |
@@ -54,7 +54,7 @@
 | 指标ID | 接口 | 方法 | 通过标准 |
 | --- | --- | --- | --- |
 | P-001 | `get_selected_view_context` | 热身 10 次后连续 50 次，统计 P95 | P95 `<= 2s` |
-| P-002 | `get_requirement_bindings` | 构造 100 条 requirement，连续 100 次读取 | P95 `<= 1s` |
+| P-002 | `get_requirement_code_info` | 构造 100 条 requirement，连续 100 次读取 | P95 `<= 1s` |
 
 说明：性能测试固定在“有会话+稳定页面”执行，避免外部波动干扰。
 

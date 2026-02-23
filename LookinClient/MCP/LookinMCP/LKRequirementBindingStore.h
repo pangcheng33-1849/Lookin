@@ -1,5 +1,5 @@
 //
-//  LKRequirementBindingStore.h
+//  LKRequirementCodeInfoStore.h
 //  Lookin
 //
 //  Created by Codex on 2026/2/23.
@@ -9,23 +9,23 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSUInteger, LKMCPBindingTTLMode) {
-    LKMCPBindingTTLModeSessionOnly = 0,
-    LKMCPBindingTTLMode1Hour = 1,
-    LKMCPBindingTTLMode1Day = 2,
+typedef NS_ENUM(NSUInteger, LKMCPCodeInfoTTLMode) {
+    LKMCPCodeInfoTTLModeSessionOnly = 0,
+    LKMCPCodeInfoTTLMode1Hour = 1,
+    LKMCPCodeInfoTTLMode1Day = 2,
 };
 
-@interface LKRequirementBindingStore : NSObject
+@interface LKRequirementCodeInfoStore : NSObject
 
 + (instancetype)sharedInstance;
 
-@property(nonatomic, assign) LKMCPBindingTTLMode ttlMode;
+@property(nonatomic, assign) LKMCPCodeInfoTTLMode ttlMode;
 
 - (NSArray<NSDictionary<NSString *, NSString *> *> *)recordsForSessionId:(NSString *)sessionId;
 - (void)saveRecords:(NSArray<NSDictionary<NSString *, NSString *> *> *)records sessionId:(NSString *)sessionId;
 - (void)removeRecordsForSessionId:(NSString *)sessionId;
 - (void)cleanupExpiredRecords;
-- (void)showRequirementBindingBoardForSessionId:(NSString *)sessionId;
+- (void)showRequirementCodeInfoBoardForSessionId:(NSString *)sessionId;
 
 @end
 

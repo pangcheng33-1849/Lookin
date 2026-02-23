@@ -8,7 +8,7 @@
   - `lookin.health`
   - `lookin.get_selected_view_context`
   - `lookin.set_requirement_items`
-  - `lookin.get_requirement_bindings`
+  - `lookin.get_requirement_code_info`
   - `lookin.capture_selected_view_screenshot`
 - 产出要求：
   - 每个 Tool：参数表 + JSON Schema + 成功示例 + 失败示例
@@ -18,13 +18,13 @@
 ## [x] 3) `UI_SPEC.md`
 - 目标：把 FR-2 的交互细节固化为可实现稿，避免开发期解释偏差。
 - 需覆盖：
-  - 右侧 `Requirement Binding` 卡片（字段、按钮、禁用态、文案）
-  - 左侧 Hierarchy 右键菜单（绑定/解绑/空态）
-  - 中间 3D/预览右键菜单（绑定/解绑/空态）
+  - `Code Info` 独立看板（字段、按钮、禁用态、文案）
+  - 左侧 Hierarchy 右键菜单（打开看板/空态/列表只读）
+  - 中间 3D/预览右键菜单（打开看板/空态/列表只读）
   - 三处联动刷新时序（操作后 1s 内可见）
 - 产出要求：
-  - 关键流程图（绑定、解绑、重绑、节点失效）
-  - 状态矩阵（未关联/已关联/失效）
+  - 关键流程图（打开看板、编辑、刷新）
+  - 状态矩阵（有数据/无数据/会话切换）
   - UI 文案清单（中英文策略若有）
 
 ## [x] 5) `TEST_PLAN.md`
@@ -32,7 +32,7 @@
 - 需覆盖：
   - 功能测试：5 个 Tool 全链路
   - 异常测试：无会话、无选中、重复 requirementId、requirement 不存在、截图失败
-  - 性能测试：`get_selected_view_context` P95、`get_requirement_bindings` P95
+  - 性能测试：`get_selected_view_context` P95、`get_requirement_code_info` P95
   - 稳定性测试：连续调用 100 次
 - 产出要求：
   - 用例编号 + 前置条件 + 步骤 + 预期结果
@@ -43,7 +43,7 @@
 - 目标：把技术方案拆到“文件/类/任务”级，直接进入开发排期。
 - 需覆盖：
   - M1：`health/context/screenshot`
-  - M2：`requirement binding` 全链路 + 工具栏状态（基础版）
+  - M2：`code info` 全链路 + 工具栏状态（基础版）
   - M3：性能、错误码、文档收敛
 - 产出要求：
   - 新增文件清单（类名、职责、依赖）

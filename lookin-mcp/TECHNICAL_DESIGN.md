@@ -7,14 +7,14 @@
 - `lookin.health`
 - `lookin.get_selected_view_context`
 - `lookin.set_requirement_items`
-- `lookin.get_requirement_bindings`
+- `lookin.get_requirement_code_info`
 - `lookin.capture_selected_view_screenshot`
 
 并满足：
 
 - 数据源以 iOS 运行时回传为主。
-- `bindings` 类型为 `String`，内容格式不限制。
-- 绑定关系默认会话内有效，支持可配置短期持久化。
+- `codeInfo` 类型为 `String`，内容格式不限制。
+- `codeInfo` 数据默认会话内有效，支持可配置短期持久化。
 - UIKit only（不支持 SwiftUI）。
 
 ## 2. 现状基线（代码挂载点）
@@ -44,9 +44,9 @@ flowchart LR
     A["Agent (Codex/Claude)"] --> B["LKMCPServerRuntime (HTTP JSON-RPC)"]
     B --> C["LKMCPToolRouter"]
     C --> D["LKMCPContextService (FR-1/FR-3)"]
-    C --> E["LKRequirementBindingService (FR-2)"]
+    C --> E["LKRequirementCodeInfoService (FR-2)"]
     D --> F["LKHierarchyDataSource.selectedItem + rawHierarchyInfo"]
-    E --> G["RequirementBindingStore (内存 + 短期持久化)"]
+    E --> G["RequirementCodeInfoStore (内存 + 短期持久化)"]
     E --> H["UIBridge (Dashboard卡片 + 右键菜单)"]
 ```
 
@@ -59,12 +59,12 @@ flowchart LR
   - 职责：方法分发、参数校验、输出 schema 校验、错误码映射。
 - `LKMCPContextService`
   - 职责：组装 `get_selected_view_context` 与截图输出。
-- `LKRequirementBindingService`
-  - 职责：管理 requirement 列表、节点绑定、失效检测、状态同步。
-- `RequirementBindingStore`
+- `LKRequirementCodeInfoService`
+  - 职责：管理 requirement 列表、`codeInfo` 持久化与状态同步。
+- `RequirementCodeInfoStore`
   - 职责：会话内状态 + `NSUserDefaults` 短期持久化（可配置 TTL）。
 - `UIBridge`
-  - 职责：向左树/中预览注入 `Requirement Binding` 菜单，向右侧注入表单卡片并保持状态同步。
+  - 职责：向左树/中预览注入 `Code Info` 菜单，并提供全局 `Code Info` 看板入口。
 
 ### 3.2 传输协议选择（为何 Streamable HTTP 而非 stdio）
 
@@ -89,17 +89,17 @@ flowchart LR
 - `sessionTimestamp`：服务端生成（毫秒时间戳）。
 - 会话切换判定：`LKAppsManager.inspectingApp` 变化或 `appInfoIdentifier` 变化时触发。
 
-### 4.2 Requirement 绑定模型
+### 4.2 Requirement Code Info 模型
 
 - `RequirementItem`
   - `requirementId: String`（唯一）
   - `description: String`
-- `RequirementBindingRecord`
+- `RequirementCodeInfoRecord`
   - `requirementId`
   - `description`
-  - `bindings: String`（对外返回字段，内部可序列化多个节点）
+  - `codeInfo: String`（对外返回字段）
 
-说明：对外 `bindings` 固定为 `String`，内部允许保存结构化对象并在输出时序列化为字符串。
+说明：`codeInfo` 固定为 `String`，不限制格式；由调用方/LLM 自行解释。
 不设官方格式约束，不定义固定模板（如 JSON schema）；由调用方/LLM 自行解释该字符串内容。
 
 ## 5. Tool 设计
@@ -152,11 +152,11 @@ flowchart LR
   - 同请求内 `requirementId` 不可重复。
 - 结果：更新内存 store，并广播 UI 刷新事件。
 
-### 5.4 `lookin.get_requirement_bindings`
+### 5.4 `lookin.get_requirement_code_info`
 
-- 输出：`[{requirementId, description, bindings}]`
-- `bindings` 为 `String`，格式不限制（不做模板约束，交由 LLM 自行理解）。
-- 每次读取前执行节点有效性检查；失效节点对应数据在服务端清理后再返回。
+- 输出：`[{requirementId, description, codeInfo}]`
+- `codeInfo` 为 `String`，格式不限制（不做模板约束，交由 LLM 自行理解）。
+- 读取时直接返回当前会话下的 requirement 数据，不做节点关联态推断。
 
 ### 5.5 `lookin.capture_selected_view_screenshot`
 
@@ -170,35 +170,35 @@ flowchart LR
 ### 6.1 右侧表单卡片（Dashboard）
 
 - 新增 Group：`Requirement`
-- 新增 Section：`Requirement Binding`
+- 新增独立窗口：`Code Info Items`
 - 字段：
-  - `Requirement`（下拉）
-  - `Description`（只读）
-  - `Bindings`（多行文本，`String`）
+  - `Requirement ID`（只读）
+  - `Description`（可编辑）
+  - `Code Info`（多行文本，`String`）
 - 操作：
-  - 绑定到当前节点
-  - 解绑
-  - 添加自定义 item
+  - `Add`
+  - `Delete`
+  - `Reload`
 
 实现路径：
 
-- 扩展 `LookinAttrIdentifiers.*` 和 `LookinDashboardBlueprint.*` 定义新 group/section/attr。
-- 在 `LKDashboardSectionView` 为新 attr identifier 绑定 `LKDashboardAttributeRequirementBindingView`。
+- 基于 `LKRequirementCodeInfoStore` 新增并维护独立看板控制器。
+- 在右键菜单中提供看板打开入口。
 
 ### 6.2 左树/中预览右键菜单
 
-- 左树：`LKHierarchyView.menuNeedsUpdate` 增加一级菜单 `Requirement Binding >`
+- 左树：`LKHierarchyView.menuNeedsUpdate` 增加一级菜单 `Code Info >`
 - 中预览：`LKPreviewController.menuNeedsUpdate` 同步增加
 - 子菜单内容：
-  - requirement 列表（点击即绑定到该右键节点）
-  - 若已绑定：`Unbind from <requirementId>`
+  - `Open Code Info Board…`
+  - requirement 列表（只读展示 `requirementId - description`）
   - 无 requirement 时置灰并提示先调用 `set_requirement_items`
 
 ### 6.3 状态一致性
 
-- 新增通知：`NotificationName_RequirementBindingDidChange`
-- 触发点：Tool 写入、右键菜单操作、表单操作
-- 订阅者：左树菜单、中预览菜单、右侧卡片
+- 新增通知：`NotificationName_RequirementCodeInfoDidChange`
+- 触发点：Tool 写入、看板编辑
+- 订阅者：左树菜单、中预览菜单、Code Info 看板
 
 ## 7. 持久化策略
 
@@ -207,9 +207,9 @@ flowchart LR
 - TTL 档位：`仅会话内 / 1h / 24h / 72h`。
 - 配置入口：`Preference` 页（M2 先实现常量 + UserDefaults 配置，M3 补可视化设置入口）。
 - 持久化键建议放入 `LKPreferenceManager`：
-  - `mcp_requirement_bindings_payload`
-  - `mcp_requirement_bindings_expire_at`
-  - `mcp_requirement_bindings_ttl_mode`
+  - `mcp_requirement_code_info_payload`
+  - `mcp_requirement_code_info_expire_at`
+  - `mcp_requirement_code_info_ttl_mode`
 - 会话变化时：
   - 同 appInfoIdentifier：可恢复
   - 不同 appInfoIdentifier：标记为失效，不自动复用
@@ -230,8 +230,8 @@ flowchart LR
 - `get_selected_view_context` P95 < 2s：
   - 默认 `childrenDepth=1`
   - attributes 展平采用惰性映射
-- `get_requirement_bindings` P95 < 1s：
-  - 节点有效性检查采用 O(1) oid map（复用 `LKHierarchyDataSource.oidToDisplayItemMap` 思路）
+- `get_requirement_code_info` P95 < 1s：
+  - 主要开销为内存/本地持久化读取与 JSON 序列化
 
 ## 10. 安全与边界
 
@@ -249,9 +249,9 @@ flowchart LR
 
 ### M2（FR-2 全链路）
 
-- 新增 `LKRequirementBindingService` + `RequirementBindingStore`
+- 新增 `LKRequirementCodeInfoService` + `RequirementCodeInfoStore`
 - 完成右侧卡片 + 左/中右键菜单联动
-- 打通 `set(append/remove)/get requirement bindings`
+- 打通 `set(append/remove)/get code infos`
 - 新增工具栏 MCP 状态指示（基础版）
 
 ### M3（收敛与验收）
@@ -265,6 +265,6 @@ flowchart LR
 
 已定：`lookin.health` 保留，且保持低复杂度最小实现。
 已定：MCP 传输采用 `Streamable HTTP`（本地回环地址），本期不采用 `stdio`。
-已定：`bindings` 仅要求 `String` 类型，不限制字符串格式，由 LLM 自行理解。
+已定：`codeInfo` 仅要求 `String` 类型，不限制字符串格式，由 LLM 自行理解。
 已定：短期持久化 TTL 默认 `24h`，支持 `仅会话内 / 1h / 24h / 72h`，配置入口放在 `Preference`（M2 先底层配置，M3 补 UI）。
 已定：新增工具栏 MCP 状态指示，至少展示 `服务状态/端口/会话状态`（M2 基础展示，M3 增加错误细分与交互）。

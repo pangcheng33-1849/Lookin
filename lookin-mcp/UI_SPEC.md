@@ -1,61 +1,56 @@
-# Lookin-MCP UI 规格（精简版）
+# Lookin-MCP UI 规格（Code Info）
 
-版本：`v1`  
-范围：仅 FR-2（Requirement Binding）UI，不新增 MCP Tool。
+版本：`v2`  
+范围：FR-2（Code Info），不新增 MCP Tool。
 
 ## 1. 目标
 
-- 在不改变 Lookin 三栏布局的前提下，提供“需求项与节点绑定”的最小可用交互。
-- 避免新增复杂状态实体；对外读取仍以 `requirementId/description/bindings` 为准。
+- 将原“节点绑定”交互改为“需求项对应代码信息”的全局编辑模式。
+- `codeInfo` 仅表示自然语言需求对应的相关代码信息，不要求与当前节点建立真实绑定关系。
 
-## 2. 必做改动
+## 2. 信息结构
 
-- 右侧 Dashboard 新增卡片：`Requirement Binding`（与现有卡片同级）。
-- 左侧 Hierarchy 右键菜单新增：`Requirement Binding >`。
-- 中间 3D/预览右键菜单新增：`Requirement Binding >`。
+- 对外字段固定：`requirementId / description / codeInfo`。
+- `codeInfo` 类型为 `String`，格式不限制。
 
-## 3. 右侧卡片（最小字段）
+## 3. 界面改动
 
-- `Requirement`：下拉，数据来自 requirement 列表。
-- `Description`：只读，随选中 requirement 变化。
-- `Bindings`：多行文本，`String`，格式不限制。
-
-操作按钮：
-
-- `绑定到当前节点`
-- `解绑当前节点`
-- `添加自定义 item`
-
-禁用规则：
-
-- 无 requirement：不可绑定，提示“请先添加 requirement”。
-- 无选中节点：绑定/解绑不可用，提示“请先选择节点”。
+- 右侧维持现有 Dashboard，不再承担节点绑定操作。
+- 新增独立窗口：`Code Info Items`（全局看板）。
+- 左侧 Hierarchy 右键菜单新增：`Code Info >`。
+- 中间 3D/预览右键菜单新增：`Code Info >`。
 
 ## 4. 右键菜单行为
 
-- 一级：`Requirement Binding >`
+- 一级：`Code Info >`
 - 二级：
-  - requirement 列表（点击即绑定当前右键节点）
-  - 已绑定项显示 `Unbind from <requirementId-description>`
-- requirement 为空时：一级菜单置灰。
+  - `Open Code Info Board…`
+  - requirement 列表（仅展示 `requirementId - description`，只读）
+- 当 requirement 为空时，显示禁用提示：`No requirement items. Call set_requirement_items first.`
 
-## 5. 联动规则
+说明：菜单不再提供“关联到当前节点”类动作。
 
-- 任一入口执行绑定/解绑后，右侧卡片、左侧菜单、中间菜单在 `1s` 内同步刷新。
-- 节点失效由服务端读取前清理；UI 不引入“失效状态字段”。
+## 5. Code Info 看板字段
 
-## 6. 文案（中文）
+- `Requirement ID`：只读。
+- `Description`：可编辑，修改后立即生效。
+- `Code Info`：多行文本，可编辑，修改后立即生效。
 
-- `Requirement Binding >`
-- `Unbind from <requirementId-description>`
-- `请先添加 requirement`
-- `请先选择节点`
-- `绑定已更新`
-- `解绑已更新`
+操作：
+
+- `Add`：新增 requirement 行（自动生成默认 `requirementId`）。
+- `Delete`：删除当前行。
+- `Reload`：从 store 重新加载。
+
+说明：不提供 `Apply` / `Save All`，编辑即写入。
+
+## 6. 一致性与刷新
+
+- 看板编辑成功后发送 `NotificationName_RequirementCodeInfoDidChange`。
+- 左右键菜单与看板在 `1s` 内完成可见状态同步。
 
 ## 7. 最小验收
 
-- 三处入口都可完成绑定/解绑。
-- 禁用态与提示文案正确。
-- 操作后 1s 内三处状态一致。
-- `get_requirement_bindings` 返回仅包含 `requirementId/description/bindings`。
+- 三处入口（看板、左菜单、中菜单）均可稳定查看/编辑同一份 `codeInfo` 数据。
+- 删除“节点绑定”相关逻辑后，`get_requirement_code_info` 返回数据仍正确。
+- 右键菜单不再出现历史“节点绑定”动作文案。

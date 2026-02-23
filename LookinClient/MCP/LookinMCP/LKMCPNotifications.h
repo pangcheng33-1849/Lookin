@@ -9,8 +9,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-extern NSString * const NotificationName_RequirementBindingDidChange;
-extern NSString * const LKMCPRequirementBindingChangedSessionIdKey;
-extern NSString * const LKMCPRequirementBindingChangedOperationKey;
+extern NSString * const NotificationName_RequirementCodeInfoDidChange;
+extern NSString * const LKMCPRequirementCodeInfoChangedSessionIdKey;
+extern NSString * const LKMCPRequirementCodeInfoChangedOperationKey;
 
 NS_ASSUME_NONNULL_END

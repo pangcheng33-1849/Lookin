@@ -27,7 +27,7 @@ def test_E_001_no_session(
 
     for tool_name, arguments in [
         ("lookin.get_selected_view_context", {"childrenDepth": 1}),
-        ("lookin.get_requirement_bindings", {}),
+        ("lookin.get_requirement_code_info", {}),
         ("lookin.capture_selected_view_screenshot", {"format": "png"}),
     ]:
         result = mcp_client.invoke(tool_name, arguments)

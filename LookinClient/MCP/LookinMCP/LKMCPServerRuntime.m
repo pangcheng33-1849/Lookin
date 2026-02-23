@@ -56,7 +56,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _toolRouter = [[LKMCPToolRouter alloc] initWithContextService:nil bindingService:nil];
+        _toolRouter = [[LKMCPToolRouter alloc] initWithContextService:nil codeInfoService:nil];
         _serverQueue = dispatch_queue_create("com.lookin.mcp.server", DISPATCH_QUEUE_SERIAL);
         _listenSocketFD = -1;
     }

@@ -34,7 +34,7 @@ def test_S_001_mixed_calls_100_rounds(
                     "items": [{"requirementId": rid, "description": f"S1 item {i}"}],
                 },
             ),
-            ("lookin.get_requirement_bindings", {}),
+            ("lookin.get_requirement_code_info", {}),
             ("lookin.capture_selected_view_screenshot", {"format": "png"}),
             (
                 "lookin.set_requirement_items",
@@ -64,7 +64,7 @@ def test_S_002_session_switch_recovery(
         for tool_name, args in [
             ("lookin.health", {}),
             ("lookin.get_selected_view_context", {"childrenDepth": 1}),
-            ("lookin.get_requirement_bindings", {}),
+            ("lookin.get_requirement_code_info", {}),
             ("lookin.capture_selected_view_screenshot", {"format": "png"}),
         ]:
             result = mcp_client.invoke(tool_name, args)

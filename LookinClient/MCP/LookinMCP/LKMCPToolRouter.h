@@ -9,12 +9,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class LKMCPContextService, LKRequirementBindingService;
+@class LKMCPContextService, LKRequirementCodeInfoService;
 
 @interface LKMCPToolRouter : NSObject
 
 - (instancetype)initWithContextService:(nullable LKMCPContextService *)contextService
-                        bindingService:(nullable LKRequirementBindingService *)bindingService;
+                       codeInfoService:(nullable LKRequirementCodeInfoService *)codeInfoService;
 
 - (nullable NSDictionary<NSString *, id> *)routeToolName:(NSString *)toolName
                                                 arguments:(nullable NSDictionary<NSString *, id> *)arguments
