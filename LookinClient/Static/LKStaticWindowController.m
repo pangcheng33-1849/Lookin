@@ -31,6 +31,7 @@
 #import "LKMessageManager.h"
 #import "LKServerVersionRequestor.h"
 #import "LKVersionComparer.h"
+#import "LKMCPServerRuntime.h"
 
 @import AppCenter;
 @import AppCenterAnalytics;
@@ -158,7 +159,7 @@
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
-    NSMutableArray *ret = @[LKToolBarIdentifier_Reload, LKToolBarIdentifier_FastMode, LKToolBarIdentifier_App, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Dimension, LKToolBarIdentifier_Rotation, LKToolBarIdentifier_Setting, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Scale, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Measure, LKToolBarIdentifier_Console].mutableCopy;
+    NSMutableArray *ret = @[LKToolBarIdentifier_Reload, LKToolBarIdentifier_FastMode, LKToolBarIdentifier_App, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Dimension, LKToolBarIdentifier_Rotation, LKToolBarIdentifier_Setting, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Scale, NSToolbarFlexibleSpaceItemIdentifier, LKToolBarIdentifier_Measure, LKToolBarIdentifier_Console, LKToolBarIdentifier_MCPStatus].mutableCopy;
     if ([[[LKMessageManager sharedInstance] queryMessages] count] > 0) {
         [ret addObject:LKToolBarIdentifier_Message];
         [MSACAnalytics trackEvent:@"Show Notification"];
@@ -202,12 +203,51 @@
         } else if ([item.itemIdentifier isEqualToString:LKToolBarIdentifier_FastMode]) {
             item.target = self;
             item.action = @selector(handleFastMode);
+        } else if ([item.itemIdentifier isEqualToString:LKToolBarIdentifier_MCPStatus]) {
+            [self _bindMCPStatusItem:item];
         }
     }
     return item;
 }
 
 #pragma mark - Event Handler
+
+- (void)_bindMCPStatusItem:(NSToolbarItem *)item {
+    NSButton *button = [item.view isKindOfClass:[NSButton class]] ? (NSButton *)item.view : nil;
+    if (!button) {
+        return;
+    }
+    
+    LKMCPServerRuntime *runtime = [LKMCPServerRuntime sharedInstance];
+    @weakify(button);
+    [[[RACSignal combineLatest:@[
+        RACObserve(runtime, running),
+        RACObserve(runtime, listeningPort),
+        RACObserve(runtime, sessionId),
+        RACObserve([LKAppsManager sharedInstance], inspectingApp)
+    ]] takeUntil:item.rac_willDeallocSignal] subscribeNext:^(RACTuple * _Nullable tuple) {
+        @strongify(button);
+        if (!button) {
+            return;
+        }
+        
+        BOOL isRunning = [tuple[0] boolValue];
+        NSUInteger port = [tuple[1] unsignedIntegerValue];
+        NSString *runtimeSessionId = [tuple[2] isKindOfClass:[NSString class]] ? tuple[2] : @"";
+        LKInspectableApp *app = [tuple[3] isKindOfClass:[LKInspectableApp class]] ? tuple[3] : nil;
+        
+        NSString *serviceState = isRunning ? @"On" : @"Off";
+        NSString *portState = isRunning ? [NSString stringWithFormat:@"%@", @(port)] : @"-";
+        NSString *sessionState = app ? @"Session On" : @"Session Off";
+        button.title = [NSString stringWithFormat:@"MCP %@ · %@ · %@", serviceState, portState, sessionState];
+        
+        if (runtimeSessionId.length > 0) {
+            button.toolTip = [NSString stringWithFormat:@"Service: %@\nPort: %@\nSession: %@\nSessionId: %@", serviceState, portState, sessionState, runtimeSessionId];
+        } else {
+            button.toolTip = [NSString stringWithFormat:@"Service: %@\nPort: %@\nSession: %@", serviceState, portState, sessionState];
+        }
+    }];
+}
 
 - (void)_handleInspectingAppDidEnd:(id)obj {
     self.isFetchingHierarchy = NO;

@@ -28,6 +28,7 @@ NSToolbarItemIdentifier const LKToolBarIdentifier_Rotation = @"16";
 NSToolbarItemIdentifier const LKToolBarIdentifier_Measure = @"17";
 NSToolbarItemIdentifier const LKToolBarIdentifier_Message = @"18";
 NSToolbarItemIdentifier const LKToolBarIdentifier_FastMode = @"19";
+NSToolbarItemIdentifier const LKToolBarIdentifier_MCPStatus = @"20";
 
 
 static NSString * const Key_BindingPreferenceManager = @"PreferenceManager";
@@ -267,6 +268,19 @@ static NSString * const Key_BindingAppInfo = @"AppInfo";
         NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_Message];
         item.view = button;
         item.minSize = NSMakeSize(48, 34);
+        return item;
+    }
+    
+    if ([identifier isEqualToString:LKToolBarIdentifier_MCPStatus]) {
+        NSButton *button = [NSButton buttonWithTitle:@"MCP Off · - · Session None" target:nil action:nil];
+        button.bezelStyle = NSBezelStyleTexturedRounded;
+        button.enabled = NO;
+        
+        NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:LKToolBarIdentifier_MCPStatus];
+        item.label = @"MCP";
+        item.view = button;
+        item.minSize = NSMakeSize(210, 34);
+        item.maxSize = NSMakeSize(300, 34);
         return item;
     }
     

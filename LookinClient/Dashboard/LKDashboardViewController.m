@@ -19,6 +19,10 @@
 #import "LKDashboardHeaderView.h"
 #import "LKDashboardSearchPropView.h"
 #import "LookinAttributesSection.h"
+#import "LookinAttributesGroup.h"
+#import "LookinAttribute.h"
+#import "LookinDisplayItem.h"
+#import "LookinObject.h"
 #import "LKDashboardSectionView.h"
 #import "LKDashboardSearchMethodsView.h"
 #import "LKDashboardSearchMethodsDataSource.h"
@@ -104,13 +108,13 @@
     if (self.staticDataSource) {
         [[[RACSignal merge:@[RACObserve(self.staticDataSource, selectedItem)]] deliverOnMainThread] subscribeNext:^(id x) {
             @strongify(self);
-            [self reloadWithGroupList:[self.staticDataSource.selectedItem queryAllAttrGroupList]];
+            [self _reloadWithSelectedItem:self.staticDataSource.selectedItem];
         }];
         
         [[self.staticDataSource.itemDidChangeAttrGroup deliverOnMainThread] subscribeNext:^(LookinDisplayItem *displayItem) {
             @strongify(self);
             if (self.staticDataSource.selectedItem == displayItem) {
-                [self reloadWithGroupList:[displayItem queryAllAttrGroupList]];
+                [self _reloadWithSelectedItem:displayItem];
             }
         }];
         
@@ -123,14 +127,17 @@
     } else if (self.readDataSource) {
         [[[RACSignal merge:@[RACObserve(self.readDataSource, selectedItem)]] deliverOnMainThread] subscribeNext:^(id x) {
             @strongify(self);
-            [self reloadWithGroupList:[self.readDataSource.selectedItem queryAllAttrGroupList]];
+            [self _reloadWithSelectedItem:self.readDataSource.selectedItem];
         }];
     }
     
     [[NSNotificationCenter defaultCenter] addObserverForName:NotificationName_DidChangeSectionShowing object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
         @strongify(self);
-        [self reloadWithGroupList:[[self currentDataSource].selectedItem queryAllAttrGroupList]];
+        [self _reloadWithSelectedItem:[self currentDataSource].selectedItem];
     }];
+
+    // Ensure dashboard content is rendered once after initialization.
+    [self _reloadWithSelectedItem:[self currentDataSource].selectedItem];
 }
 
 - (void)viewDidLayout {
@@ -318,6 +325,14 @@
         
         return nil;
     }];
+}
+
+- (void)_reloadWithSelectedItem:(LookinDisplayItem *)selectedItem {
+    [self reloadWithGroupList:[self _resolvedGroupListForSelectedItem:selectedItem]];
+}
+
+- (NSArray<LookinAttributesGroup *> *)_resolvedGroupListForSelectedItem:(LookinDisplayItem *)selectedItem {
+    return [selectedItem queryAllAttrGroupList] ?: @[];
 }
 
 - (LKHierarchyDataSource *)currentDataSource {

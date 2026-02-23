@@ -23,6 +23,10 @@
 #import "LKUserActionManager.h"
 #import "LKHierarchyDataSource+KeyDown.h"
 #import "LKStaticAsyncUpdateManager.h"
+#import "LKRequirementBindingStore.h"
+#import "LKMCPNotifications.h"
+#import "LKAppsManager.h"
+#import "LKInspectableApp.h"
 
 extern NSString *const LKAppShowConsoleNotificationName;
 
@@ -679,6 +683,8 @@ extern NSString *const LKAppShowConsoleNotificationName;
             [menu addItem:[NSMenuItem separatorItem]];
         }
     }
+
+    [self _appendRequirementBindingMenuToMenu:menu displayItem:displayItem];
     
     if (displayItem.isExpandable) {
         if (displayItem.isExpanded) {
@@ -766,6 +772,19 @@ extern NSString *const LKAppShowConsoleNotificationName;
     [self.dataSource focusDisplayItem:item];
 }
 
+- (void)_handleBindRequirementItem:(NSMenuItem *)menuItem {
+    [self _updateRequirementBindingForItem:self.rightClickingDisplayItem menuItem:menuItem bind:YES];
+}
+
+- (void)_handleUnbindRequirementItem:(NSMenuItem *)menuItem {
+    [self _updateRequirementBindingForItem:self.rightClickingDisplayItem menuItem:menuItem bind:NO];
+}
+
+- (void)_handleOpenRequirementBindingBoard:(NSMenuItem *)menuItem {
+    NSString *sessionId = [self _currentRequirementBindingSessionId] ?: @"";
+    [[LKRequirementBindingStore sharedInstance] showRequirementBindingBoardForSessionId:sessionId];
+}
+
 - (void)_handleExpandRecursively:(NSMenuItem *)menuItem {
     LookinDisplayItem *item = self.rightClickingDisplayItem;
     NSAssert(item, @"");
@@ -793,6 +812,160 @@ extern NSString *const LKAppShowConsoleNotificationName;
 
 - (void)_handleHideScreenshotForever {
     [LKHelper openCustomConfigWebsite];
+}
+
+- (void)_appendRequirementBindingMenuToMenu:(NSMenu *)menu displayItem:(LookinDisplayItem *)displayItem {
+    if (!displayItem) {
+        return;
+    }
+    if (menu.itemArray.count > 0 && !menu.itemArray.lastObject.isSeparatorItem) {
+        [menu addItem:[NSMenuItem separatorItem]];
+    }
+
+    NSMenuItem *rootItem = [NSMenuItem new];
+    rootItem.title = NSLocalizedString(@"Requirement Binding", nil);
+    NSMenu *submenu = [NSMenu new];
+    submenu.autoenablesItems = YES;
+    rootItem.submenu = submenu;
+
+    [submenu addItem:({
+        NSMenuItem *openBoardItem = [NSMenuItem new];
+        openBoardItem.title = NSLocalizedString(@"Open Requirement Binding Board…", nil);
+        openBoardItem.target = self;
+        openBoardItem.action = @selector(_handleOpenRequirementBindingBoard:);
+        openBoardItem;
+    })];
+
+    NSString *sessionId = [self _currentRequirementBindingSessionId];
+    NSArray<NSDictionary<NSString *, NSString *> *> *records = sessionId.length > 0 ? [[LKRequirementBindingStore sharedInstance] recordsForSessionId:sessionId] : @[];
+    [submenu addItem:[NSMenuItem separatorItem]];
+    if (records.count == 0) {
+        [submenu addItem:({
+            NSMenuItem *emptyItem = [NSMenuItem new];
+            emptyItem.title = NSLocalizedString(@"No requirement items. Call set_requirement_items first.", nil);
+            emptyItem.enabled = NO;
+            emptyItem;
+        })];
+    } else {
+        NSString *nodeBindingToken = [self _bindingTokenForDisplayItem:displayItem];
+        [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
+            NSString *rid = record[@"requirementId"] ?: @"";
+            NSString *desc = record[@"description"] ?: @"";
+            NSString *title = desc.length > 0 ? [NSString stringWithFormat:@"%@ - %@", rid, desc] : rid;
+
+            [submenu addItem:({
+                NSMenuItem *bindItem = [NSMenuItem new];
+                bindItem.target = self;
+                bindItem.action = @selector(_handleBindRequirementItem:);
+                bindItem.representedObject = @{@"requirementId": rid ?: @""};
+                bindItem.title = [NSString stringWithFormat:NSLocalizedString(@"Bind to %@", nil), title];
+                bindItem;
+            })];
+
+            NSString *bindings = record[@"bindings"] ?: @"";
+            if (nodeBindingToken.length > 0 && [self _bindings:bindings containToken:nodeBindingToken]) {
+                [submenu addItem:({
+                    NSMenuItem *unbindItem = [NSMenuItem new];
+                    unbindItem.target = self;
+                    unbindItem.action = @selector(_handleUnbindRequirementItem:);
+                    unbindItem.representedObject = @{@"requirementId": rid ?: @""};
+                    unbindItem.title = [NSString stringWithFormat:NSLocalizedString(@"Unbind from %@", nil), title];
+                    unbindItem;
+                })];
+            }
+        }];
+    }
+
+    [menu addItem:rootItem];
+}
+
+- (void)_updateRequirementBindingForItem:(LookinDisplayItem *)displayItem menuItem:(NSMenuItem *)menuItem bind:(BOOL)bind {
+    if (!displayItem) {
+        return;
+    }
+    NSDictionary *payload = [menuItem.representedObject isKindOfClass:[NSDictionary class]] ? menuItem.representedObject : nil;
+    NSString *requirementId = [payload[@"requirementId"] isKindOfClass:[NSString class]] ? payload[@"requirementId"] : nil;
+    if (requirementId.length == 0) {
+        return;
+    }
+    NSString *sessionId = [self _currentRequirementBindingSessionId];
+    if (sessionId.length == 0) {
+        return;
+    }
+    LKRequirementBindingStore *store = [LKRequirementBindingStore sharedInstance];
+    NSMutableArray<NSDictionary<NSString *, NSString *> *> *records = [[store recordsForSessionId:sessionId] mutableCopy];
+    if (records.count == 0) {
+        return;
+    }
+
+    NSUInteger targetIndex = [records indexOfObjectPassingTest:^BOOL(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
+        return [obj[@"requirementId"] isEqualToString:requirementId];
+    }];
+    if (targetIndex == NSNotFound) {
+        return;
+    }
+
+    NSMutableDictionary<NSString *, NSString *> *record = [records[targetIndex] mutableCopy];
+    NSString *token = [self _bindingTokenForDisplayItem:displayItem];
+    NSString *bindings = record[@"bindings"] ?: @"";
+    if (bind) {
+        if (![self _bindings:bindings containToken:token]) {
+            record[@"bindings"] = bindings.length > 0 ? [bindings stringByAppendingFormat:@"\n%@", token] : token;
+        }
+    } else {
+        NSArray<NSString *> *lines = [bindings componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+        NSMutableArray<NSString *> *newLines = [NSMutableArray array];
+        [lines enumerateObjectsUsingBlock:^(NSString *obj, NSUInteger idx, BOOL *stop) {
+            NSString *trimmed = [obj stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (trimmed.length > 0 && ![trimmed isEqualToString:token]) {
+                [newLines addObject:trimmed];
+            }
+        }];
+        record[@"bindings"] = [newLines componentsJoinedByString:@"\n"];
+    }
+    records[targetIndex] = record;
+    [store saveRecords:records sessionId:sessionId];
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementBindingDidChange
+                                                        object:nil
+                                                      userInfo:@{
+        LKMCPRequirementBindingChangedSessionIdKey: sessionId ?: @"",
+        LKMCPRequirementBindingChangedOperationKey: bind ? @"bind" : @"unbind"
+    }];
+}
+
+- (NSString *)_currentRequirementBindingSessionId {
+    LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
+    if (!app) {
+        return nil;
+    }
+    return [NSString stringWithFormat:@"%@", @(app.appInfo.appInfoIdentifier)];
+}
+
+- (NSString *)_bindingTokenForDisplayItem:(LookinDisplayItem *)displayItem {
+    LookinObject *obj = displayItem.viewObject ?: displayItem.layerObject;
+    if (!obj) {
+        return @"";
+    }
+    NSString *nodeId = [NSString stringWithFormat:@"%@", @(obj.oid)];
+    NSString *className = obj.rawClassName ?: @"";
+    return [NSString stringWithFormat:@"nodeId=%@ class=%@", nodeId, className];
+}
+
+- (BOOL)_bindings:(NSString *)bindings containToken:(NSString *)token {
+    if (bindings.length == 0 || token.length == 0) {
+        return NO;
+    }
+    NSArray<NSString *> *lines = [bindings componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+    __block BOOL found = NO;
+    [lines enumerateObjectsUsingBlock:^(NSString *obj, NSUInteger idx, BOOL *stop) {
+        NSString *trimmed = [obj stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if ([trimmed isEqualToString:token]) {
+            found = YES;
+            *stop = YES;
+        }
+    }];
+    return found;
 }
 
 @end

@@ -181,6 +181,12 @@
 		D4224EEF2358ED3400ED9626 /* LKMeasureController.m in Sources */ = {isa = PBXBuildFile; fileRef = D4224EEE2358ED3400ED9626 /* LKMeasureController.m */; };
 		D4D1B2D32353975A002A5071 /* LKWindowToolbarScaleView.m in Sources */ = {isa = PBXBuildFile; fileRef = D4D1B2D22353975A002A5071 /* LKWindowToolbarScaleView.m */; };
 		D4E1FD66236169130070DFB8 /* LKMeasureResultLineData.m in Sources */ = {isa = PBXBuildFile; fileRef = D4E1FD65236169130070DFB8 /* LKMeasureResultLineData.m */; };
+		F1D3A1000000000000000021 /* LKMCPServerRuntime.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000002 /* LKMCPServerRuntime.m */; };
+		F1D3A1000000000000000022 /* LKMCPToolRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000004 /* LKMCPToolRouter.m */; };
+		F1D3A1000000000000000023 /* LKMCPError.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000006 /* LKMCPError.m */; };
+		F1D3A1000000000000000024 /* LKMCPContextService.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000008 /* LKMCPContextService.m */; };
+		F1D3A1000000000000000025 /* LKRequirementBindingService.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000A /* LKRequirementBindingService.m */; };
+		F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000C /* LKRequirementBindingStore.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -566,6 +572,19 @@
 		D4D1B2D22353975A002A5071 /* LKWindowToolbarScaleView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKWindowToolbarScaleView.m; sourceTree = "<group>"; };
 		D4E1FD64236169130070DFB8 /* LKMeasureResultLineData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMeasureResultLineData.h; sourceTree = "<group>"; };
 		D4E1FD65236169130070DFB8 /* LKMeasureResultLineData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMeasureResultLineData.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000001 /* LKMCPServerRuntime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPServerRuntime.h; sourceTree = "<group>"; };
+		F1D3A1000000000000000002 /* LKMCPServerRuntime.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPServerRuntime.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000003 /* LKMCPToolRouter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPToolRouter.h; sourceTree = "<group>"; };
+		F1D3A1000000000000000004 /* LKMCPToolRouter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPToolRouter.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000005 /* LKMCPError.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPError.h; sourceTree = "<group>"; };
+		F1D3A1000000000000000006 /* LKMCPError.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPError.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000007 /* LKMCPContextService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPContextService.h; sourceTree = "<group>"; };
+		F1D3A1000000000000000008 /* LKMCPContextService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPContextService.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000009 /* LKRequirementBindingService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKRequirementBindingService.h; sourceTree = "<group>"; };
+		F1D3A100000000000000000A /* LKRequirementBindingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementBindingService.m; sourceTree = "<group>"; };
+		F1D3A100000000000000000B /* LKRequirementBindingStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKRequirementBindingStore.h; sourceTree = "<group>"; };
+		F1D3A100000000000000000C /* LKRequirementBindingStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementBindingStore.m; sourceTree = "<group>"; };
+		F1D3A100000000000000000D /* LKMCPNotifications.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPNotifications.h; sourceTree = "<group>"; };
 		D97552B9BF9170E090F8CAA7 /* Pods-LookinClient.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LookinClient.debug.xcconfig"; path = "Target Support Files/Pods-LookinClient/Pods-LookinClient.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -663,6 +682,34 @@
 				A777C2A62B2F55EE00677624 /* DanceScript.sh */,
 			);
 			path = DanceScript;
+			sourceTree = "<group>";
+		};
+		F1D3A1000000000000000010 /* MCP */ = {
+			isa = PBXGroup;
+			children = (
+				F1D3A1000000000000000011 /* LookinMCP */,
+			);
+			path = MCP;
+			sourceTree = "<group>";
+		};
+		F1D3A1000000000000000011 /* LookinMCP */ = {
+			isa = PBXGroup;
+			children = (
+				F1D3A1000000000000000005 /* LKMCPError.h */,
+				F1D3A1000000000000000006 /* LKMCPError.m */,
+				F1D3A100000000000000000D /* LKMCPNotifications.h */,
+				F1D3A1000000000000000001 /* LKMCPServerRuntime.h */,
+				F1D3A1000000000000000002 /* LKMCPServerRuntime.m */,
+				F1D3A1000000000000000003 /* LKMCPToolRouter.h */,
+				F1D3A1000000000000000004 /* LKMCPToolRouter.m */,
+				F1D3A1000000000000000007 /* LKMCPContextService.h */,
+				F1D3A1000000000000000008 /* LKMCPContextService.m */,
+				F1D3A1000000000000000009 /* LKRequirementBindingService.h */,
+				F1D3A100000000000000000A /* LKRequirementBindingService.m */,
+				F1D3A100000000000000000B /* LKRequirementBindingStore.h */,
+				F1D3A100000000000000000C /* LKRequirementBindingStore.m */,
+			);
+			path = LookinMCP;
 			sourceTree = "<group>";
 		};
 		A77AA17F2AEED98B006A7BF4 /* Other */ = {
@@ -852,6 +899,7 @@
 				AA48F2A121CC0CA60032EC2C /* Assets.xcassets */,
 				AAA8C0C021CC17670017A345 /* LookinClient_PrefixHeader.pch */,
 				A777C2A52B2F54DA00677624 /* DanceScript */,
+				F1D3A1000000000000000010 /* MCP */,
 				A77AA17F2AEED98B006A7BF4 /* Other */,
 				AA77A32C22CE0E7100C73721 /* lookin_icon.icns */,
 				A26EF68527F89F83005A9E4E /* ShortCocoa */,
@@ -1292,9 +1340,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LookinClient/Pods-LookinClient-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LookinClient/Pods-LookinClient-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1463,6 +1515,12 @@
 				AA6CC488221FE7DE00CA6D54 /* LKNumberInputView.m in Sources */,
 				AA50753A22A27CC500D2A5AC /* LKConsoleDataSource.m in Sources */,
 				AA74B1CC22897C9400366865 /* LKReadHierarchyController.m in Sources */,
+				F1D3A1000000000000000021 /* LKMCPServerRuntime.m in Sources */,
+				F1D3A1000000000000000022 /* LKMCPToolRouter.m in Sources */,
+				F1D3A1000000000000000023 /* LKMCPError.m in Sources */,
+				F1D3A1000000000000000024 /* LKMCPContextService.m in Sources */,
+				F1D3A1000000000000000025 /* LKRequirementBindingService.m in Sources */,
+				F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */,
 				AA56062D2322A733008C82CF /* LKDashboardSearchMethodsView.m in Sources */,
 				AA9CC2C522891EA20014D13B /* LKExportAccessoryView.m in Sources */,
 				AAEC35A52340EAB3009E5040 /* NSString+LookinClient.m in Sources */,
@@ -1627,11 +1685,12 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = LookinClient/Lookin.entitlements;
 				CODE_SIGN_IDENTITY = "Mac Developer";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 14;
 				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = 5V3Z8FVWHU;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1668,11 +1727,12 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = LookinClient/Lookin.entitlements;
 				CODE_SIGN_IDENTITY = "Mac Developer";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 14;
 				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = 5V3Z8FVWHU;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
