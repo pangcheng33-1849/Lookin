@@ -187,6 +187,7 @@
 		F1D3A1000000000000000024 /* LKMCPContextService.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000008 /* LKMCPContextService.m */; };
 		F1D3A1000000000000000025 /* LKRequirementBindingService.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000A /* LKRequirementBindingService.m */; };
 		F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000C /* LKRequirementBindingStore.m */; };
+		F1D3A1000000000000000027 /* LKRequirementCodeInfoMenuHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000F /* LKRequirementCodeInfoMenuHelper.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -586,6 +587,8 @@
 		F1D3A100000000000000000B /* LKRequirementBindingStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKRequirementBindingStore.h; sourceTree = "<group>"; };
 		F1D3A100000000000000000C /* LKRequirementBindingStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementBindingStore.m; sourceTree = "<group>"; };
 		F1D3A100000000000000000D /* LKMCPNotifications.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPNotifications.h; sourceTree = "<group>"; };
+		F1D3A100000000000000000E /* LKRequirementCodeInfoMenuHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKRequirementCodeInfoMenuHelper.h; sourceTree = "<group>"; };
+		F1D3A100000000000000000F /* LKRequirementCodeInfoMenuHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementCodeInfoMenuHelper.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1222,6 +1225,8 @@
 				F1D3A100000000000000000A /* LKRequirementBindingService.m */,
 				F1D3A100000000000000000B /* LKRequirementBindingStore.h */,
 				F1D3A100000000000000000C /* LKRequirementBindingStore.m */,
+				F1D3A100000000000000000E /* LKRequirementCodeInfoMenuHelper.h */,
+				F1D3A100000000000000000F /* LKRequirementCodeInfoMenuHelper.m */,
 			);
 			path = LookinMCP;
 			sourceTree = "<group>";
@@ -1521,6 +1526,7 @@
 				F1D3A1000000000000000024 /* LKMCPContextService.m in Sources */,
 				F1D3A1000000000000000025 /* LKRequirementBindingService.m in Sources */,
 				F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */,
+				F1D3A1000000000000000027 /* LKRequirementCodeInfoMenuHelper.m in Sources */,
 				AA56062D2322A733008C82CF /* LKDashboardSearchMethodsView.m in Sources */,
 				AA9CC2C522891EA20014D13B /* LKExportAccessoryView.m in Sources */,
 				AAEC35A52340EAB3009E5040 /* NSString+LookinClient.m in Sources */,
