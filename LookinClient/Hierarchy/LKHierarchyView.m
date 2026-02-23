@@ -23,6 +23,7 @@
 #import "LKAppsManager.h"
 #import "LKInspectableApp.h"
 #import "LookinAppInfo.h"
+#import "LookinHierarchyInfo.h"
 
 static NSString * const kMenuBindKey_RowView = @"view";
 static CGFloat const kRowHeight = 28;
@@ -760,6 +761,11 @@ extern NSString *const LKAppShowConsoleNotificationName;
 }
 
 - (NSString *)_currentRequirementBindingSessionId {
+    LookinAppInfo *dataSourceAppInfo = self.dataSource.rawHierarchyInfo.appInfo;
+    if (dataSourceAppInfo) {
+        return [NSString stringWithFormat:@"%@", @(dataSourceAppInfo.appInfoIdentifier)];
+    }
+
     LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
     if (!app) {
         return nil;

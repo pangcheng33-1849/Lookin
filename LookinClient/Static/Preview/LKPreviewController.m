@@ -935,6 +935,11 @@ extern NSString *const LKAppShowConsoleNotificationName;
 }
 
 - (NSString *)_currentRequirementBindingSessionId {
+    LookinAppInfo *dataSourceAppInfo = self.dataSource.rawHierarchyInfo.appInfo;
+    if (dataSourceAppInfo) {
+        return [NSString stringWithFormat:@"%@", @(dataSourceAppInfo.appInfoIdentifier)];
+    }
+
     LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
     if (!app) {
         return nil;
