@@ -42,12 +42,14 @@ class MCPTestClient:
     def __init__(self, base_url: str | None = None, timeout_sec: float | None = None) -> None:
         self.base_url = base_url or os.getenv(
             "LOOKIN_MCP_TEST_BASE_URL",
-            "http://127.0.0.1:4010/mcp/tool",
+            "http://127.0.0.1:4010/mcp",
         )
         self.timeout_sec = timeout_sec if timeout_sec is not None else _env_float(
             "LOOKIN_MCP_TEST_TIMEOUT_SEC",
             15.0,
         )
+        self._initialized = False
+        self._request_id = 1
 
     def invoke(self, tool_name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
         safe_arguments = dict(arguments or {})
@@ -60,16 +62,77 @@ class MCPTestClient:
         if any(scenario_flags.values()):
             safe_arguments["_scenarioFlags"] = scenario_flags
 
-        payload = {
-            "name": tool_name,
-            "arguments": safe_arguments,
+        init_result = self._ensure_initialized()
+        if not init_result.ok:
+            return init_result
+        return self.invoke_standard_method(
+            "tools/call",
+            {"name": tool_name, "arguments": safe_arguments},
+            request_id=self._next_request_id(),
+        )
+
+    def invoke_standard_method(
+        self,
+        method: str,
+        params: dict[str, Any] | None = None,
+        *,
+        request_id: int | str | None = 1,
+    ) -> ToolResult:
+        payload: dict[str, Any] = {
+            "jsonrpc": "2.0",
+            "method": method,
         }
+        if params is not None:
+            payload["params"] = params
+        if request_id is not None:
+            payload["id"] = request_id
+        return self.invoke_raw_payload(payload, self.base_url)
+
+    def _next_request_id(self) -> int:
+        current = self._request_id
+        self._request_id += 1
+        return current
+
+    def _ensure_initialized(self) -> ToolResult:
+        if self._initialized:
+            return ToolResult(ok=True, status_code=200, content={}, error=None, raw={})
+
+        init = self.invoke_standard_method(
+            "initialize",
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "lookin-mcp-tests",
+                    "version": "0.1.0",
+                },
+            },
+            request_id=self._next_request_id(),
+        )
+        if not init.ok:
+            return init
+
+        initialized = self.invoke_standard_method(
+            "notifications/initialized",
+            {},
+            request_id=None,
+        )
+        if not initialized.ok:
+            return initialized
+
+        self._initialized = True
+        return ToolResult(ok=True, status_code=200, content=init.content, error=None, raw=init.raw)
+
+    def invoke_raw_payload(self, payload: dict[str, Any], url: str) -> ToolResult:
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         request = urllib.request.Request(
-            self.base_url,
+            url,
             data=body_bytes,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "MCP-Protocol-Version": "2025-06-18",
+            },
         )
 
         try:
@@ -88,7 +151,7 @@ class MCPTestClient:
                     "code": "LOOKIN_MCP_TRANSPORT_ERROR",
                     "message": str(exc.reason),
                     "recoverable": True,
-                    "hint": "Check LOOKIN_MCP_TEST_BASE_URL and server status.",
+                    "hint": "Check LOOKIN_MCP_TEST_BASE_URL (/mcp) and server status.",
                 },
                 raw=None,
             )
@@ -119,6 +182,21 @@ class MCPTestClient:
 
             if "result" in payload and isinstance(payload["result"], dict):
                 result = payload["result"]
+                if "content" in result and isinstance(result["content"], list):
+                    return ToolResult(
+                        ok=not bool(result.get("isError")),
+                        status_code=status_code,
+                        content=result.get("structuredContent")
+                        if isinstance(result.get("structuredContent"), dict)
+                        else {
+                            "content": result["content"],
+                            "isError": bool(result.get("isError")),
+                        },
+                        error=result.get("structuredContent", {}).get("error")
+                        if isinstance(result.get("structuredContent"), dict)
+                        else None,
+                        raw=payload,
+                    )
                 if "structuredContent" in result and isinstance(result["structuredContent"], dict):
                     return ToolResult(
                         ok=True,
