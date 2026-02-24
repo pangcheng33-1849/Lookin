@@ -30,6 +30,68 @@ macOS app: https://github.com/hughkli/Lookin/
 - How to turn on Swift optimization for Lookin: https://bytedance.larkoffice.com/docx/GFRLdzpeKoakeyxvwgCcZ5XdnTb
 - Documentation Collection: https://bytedance.larkoffice.com/docx/Yvv1d57XQoe5l0xZ0ZRc0ILfnWb
 
+# Lookin MCP (Local)
+After Lookin app starts and connects to a target iOS app, MCP is exposed on local endpoint:
+
+- `http://127.0.0.1:4010/mcp`
+
+Health check (JSON-RPC 2.0):
+
+```bash
+curl -sS -X POST "http://127.0.0.1:4010/mcp" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"lookin.health","arguments":{}}}'
+```
+
+## Agent Configuration (Codex / Claude Code)
+
+### Codex
+Create project config file `.codex/config.toml`:
+
+```toml
+[mcp_servers.LookinMCP]
+url = "http://127.0.0.1:4010/mcp"
+```
+
+### Claude Code
+Create project file `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "LookinMCP": {
+      "url": "http://127.0.0.1:4010/mcp"
+    }
+  }
+}
+```
+
+Then restart the agent session and verify by calling `lookin.health`.
+
+# lookinmcp-cli
+You can use the published CLI package to call MCP tools directly:
+
+```bash
+# one-off
+npx @cheng-pang/lookinmcp-cli health
+
+# install locally (global)
+npm install -g @cheng-pang/lookinmcp-cli
+lookinmcp-cli get_selected_view_context --children-depth 1
+
+# install in current project
+npm install -D @cheng-pang/lookinmcp-cli
+./node_modules/.bin/lookinmcp-cli get_requirement_code_info
+```
+
+Supported commands:
+- `health`
+- `get_selected_view_context`
+- `set_requirement_items`
+- `get_requirement_code_info`
+- `capture_selected_view_screenshot`
+
 # Acknowledgements
 https://qxh1ndiez2w.feishu.cn/docx/YIFjdE4gIolp3hxn1tGckiBxnWf
 
@@ -66,6 +128,68 @@ macOS 端软件：https://github.com/hughkli/Lookin/
 - 如何在 Lookin 中展示更多成员变量: https://bytedance.larkoffice.com/docx/CKRndHqdeoub11xSqUZcMlFhnWe
 - 如何为 Lookin 开启 Swift 优化: https://bytedance.larkoffice.com/docx/GFRLdzpeKoakeyxvwgCcZ5XdnTb
 - 文档汇总：https://bytedance.larkoffice.com/docx/Yvv1d57XQoe5l0xZ0ZRc0ILfnWb
+
+# Lookin MCP（本地）
+当 Lookin 启动并连接到目标 iOS App 后，会在本地暴露 MCP 服务：
+
+- `http://127.0.0.1:4010/mcp`
+
+健康检查（JSON-RPC 2.0）：
+
+```bash
+curl -sS -X POST "http://127.0.0.1:4010/mcp" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"lookin.health","arguments":{}}}'
+```
+
+## Agent 配置方式（Codex / Claude Code）
+
+### Codex
+在项目下创建 `.codex/config.toml`：
+
+```toml
+[mcp_servers.LookinMCP]
+url = "http://127.0.0.1:4010/mcp"
+```
+
+### Claude Code
+在项目下创建 `.mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "LookinMCP": {
+      "url": "http://127.0.0.1:4010/mcp"
+    }
+  }
+}
+```
+
+配置后重启 Agent 会话，再调用 `lookin.health` 验证连通性。
+
+# lookinmcp-cli 使用
+可以通过已发布的 CLI 包直接调用 MCP tools：
+
+```bash
+# 一次性执行
+npx @cheng-pang/lookinmcp-cli health
+
+# 全局安装
+npm install -g @cheng-pang/lookinmcp-cli
+lookinmcp-cli get_selected_view_context --children-depth 1
+
+# 项目内安装
+npm install -D @cheng-pang/lookinmcp-cli
+./node_modules/.bin/lookinmcp-cli get_requirement_code_info
+```
+
+支持的命令：
+- `health`
+- `get_selected_view_context`
+- `set_requirement_items`
+- `get_requirement_code_info`
+- `capture_selected_view_screenshot`
 
 # 鸣谢
 https://qxh1ndiez2w.feishu.cn/docx/YIFjdE4gIolp3hxn1tGckiBxnWf
