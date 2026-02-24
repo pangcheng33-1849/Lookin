@@ -19,9 +19,14 @@
 #import "LookinDashboardBlueprint.h"
 #import "LookinAutoLayoutConstraint.h"
 #import "LookinAutoLayoutConstraint+LookinClient.h"
+#if DEBUG
+#import "LKMCPContextService+Testing.h"
+#endif
 @import AppKit;
+#define LKMCPContextLog(fmt, ...) NSLog((@"[LookinMCP][Context] " fmt), ##__VA_ARGS__)
 
 static BOOL LKMCPScenarioFlagEnabled(NSString *flagName) {
+#if DEBUG
     NSString *raw = [[NSProcessInfo processInfo].environment[flagName] lowercaseString] ?: @"";
     if (raw.length == 0) {
         return NO;
@@ -32,31 +37,29 @@ static BOOL LKMCPScenarioFlagEnabled(NSString *flagName) {
         truthyValues = [NSSet setWithArray:@[@"1", @"true", @"yes", @"on"]];
     });
     return [truthyValues containsObject:raw];
+#else
+    (void)flagName;
+    return NO;
+#endif
 }
 
 static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
+#if DEBUG
     static NSUInteger counter = 0;
     @synchronized([LKMCPContextService class]) {
         counter += 1;
         return (counter % 2 == 1);
     }
+#else
+    return NO;
+#endif
 }
 
 @interface LKMCPContextService ()
 
-@property(nonatomic, copy) NSDictionary<NSString *, id> *scenarioOverrides;
-
 @end
 
 @implementation LKMCPContextService
-
-- (void)setScenarioOverrides:(NSDictionary<NSString *,id> *)scenarioOverrides {
-    if ([scenarioOverrides isKindOfClass:[NSDictionary class]]) {
-        _scenarioOverrides = [scenarioOverrides copy];
-    } else {
-        _scenarioOverrides = @{};
-    }
-}
 
 - (NSString *)currentSessionId {
     if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SESSION"]) {
@@ -154,6 +157,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
                                           hint:@"Select a regular UIKit view node and retry."
                                      sessionId:sessionId];
         }
+        LKMCPContextLog(@"selected node rejected, nodeId=%@, reason=unsupported-dashboard-context", [self _nodeIdForDisplayItem:selectedItem]);
         return nil;
     }
     if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SELECTION"]) {
@@ -176,6 +180,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         @"timestamp": [LKMCPError currentTimestampMs]
     };
     response[@"selectedNode"] = [self _buildSelectedNode:selectedItem childrenDepth:childrenDepth];
+    LKMCPContextLog(@"selected view context generated, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, [self _nodeIdForDisplayItem:selectedItem], @(childrenDepth));
     return response;
 }
 
@@ -296,6 +301,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
                                           hint:@"Check writable cache directory permission."
                                      sessionId:sessionId];
         }
+        LKMCPContextLog(@"screenshot failed to create cache directory, error=%@", createError.localizedDescription ?: @"");
         return nil;
     }
 
@@ -312,9 +318,11 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
                                           hint:@"Check cache directory permission and retry."
                                      sessionId:sessionId];
         }
+        LKMCPContextLog(@"screenshot write failed, path=%@, error=%@", filePath ?: @"", writeError.localizedDescription ?: @"");
         return nil;
     }
 
+    LKMCPContextLog(@"screenshot captured, sessionId=%@, nodeId=%@, path=%@", sessionId, nodeId, filePath);
     return @{
         @"sessionId": sessionId,
         @"nodeId": nodeId,
@@ -327,7 +335,11 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
 }
 
 - (BOOL)_isScenarioEnabled:(NSString *)flagName {
-    id override = self.scenarioOverrides[flagName];
+#if DEBUG
+    id override = [self lk_scenarioOverrideForFlag:flagName];
+    if (override != nil) {
+        LKMCPContextLog(@"scenario override hit, %@=%@", flagName, override);
+    }
     if ([override isKindOfClass:[NSNumber class]]) {
         return [(NSNumber *)override boolValue];
     }
@@ -342,6 +354,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
             return [truthyValues containsObject:raw];
         }
     }
+#endif
     return LKMCPScenarioFlagEnabled(flagName);
 }
 
@@ -422,6 +435,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
 }
 
 - (NSDictionary<NSString *, id> *)_dashboardForDisplayItem:(LookinDisplayItem *)item {
+    // Dashboard-first: keep output shape aligned with right-side Dashboard cards.
     NSMutableArray<NSDictionary<NSString *, id> *> *groups = [NSMutableArray array];
     NSArray<LookinAttributesGroup *> *allGroups = [item queryAllAttrGroupList];
     [allGroups enumerateObjectsUsingBlock:^(LookinAttributesGroup *group, NSUInteger idx, BOOL *stop) {
@@ -530,6 +544,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         return [NSNull null];
     }
     if ([value isKindOfClass:[LookinAutoLayoutConstraint class]]) {
+        // AutoLayout constraints are structured instead of plain description text.
         return [self _jsonSafeConstraint:(LookinAutoLayoutConstraint *)value];
     }
     if ([value isKindOfClass:[NSString class]] ||

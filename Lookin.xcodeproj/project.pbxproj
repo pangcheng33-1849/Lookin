@@ -189,6 +189,8 @@
 		F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000C /* LKRequirementBindingStore.m */; };
 		F1D3A1000000000000000027 /* LKRequirementCodeInfoMenuHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A100000000000000000F /* LKRequirementCodeInfoMenuHelper.m */; };
 		F1D3A1000000000000000030 /* LKMCPRequirementCodeInfoBoardController.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000032 /* LKMCPRequirementCodeInfoBoardController.m */; };
+		F1D3A1000000000000000037 /* LKMCPContextService+Testing.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000034 /* LKMCPContextService+Testing.m */; };
+		F1D3A1000000000000000038 /* LKMCPToolRouter+Testing.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D3A1000000000000000036 /* LKMCPToolRouter+Testing.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -592,6 +594,10 @@
 		F1D3A100000000000000000F /* LKRequirementCodeInfoMenuHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKRequirementCodeInfoMenuHelper.m; sourceTree = "<group>"; };
 		F1D3A1000000000000000031 /* LKMCPRequirementCodeInfoBoardController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKMCPRequirementCodeInfoBoardController.h; sourceTree = "<group>"; };
 		F1D3A1000000000000000032 /* LKMCPRequirementCodeInfoBoardController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKMCPRequirementCodeInfoBoardController.m; sourceTree = "<group>"; };
+		F1D3A1000000000000000033 /* LKMCPContextService+Testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LKMCPContextService+Testing.h"; sourceTree = "<group>"; };
+		F1D3A1000000000000000034 /* LKMCPContextService+Testing.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "LKMCPContextService+Testing.m"; sourceTree = "<group>"; };
+		F1D3A1000000000000000035 /* LKMCPToolRouter+Testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LKMCPToolRouter+Testing.h"; sourceTree = "<group>"; };
+		F1D3A1000000000000000036 /* LKMCPToolRouter+Testing.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "LKMCPToolRouter+Testing.m"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1222,8 +1228,12 @@
 				F1D3A1000000000000000002 /* LKMCPServerRuntime.m */,
 				F1D3A1000000000000000003 /* LKMCPToolRouter.h */,
 				F1D3A1000000000000000004 /* LKMCPToolRouter.m */,
+				F1D3A1000000000000000035 /* LKMCPToolRouter+Testing.h */,
+				F1D3A1000000000000000036 /* LKMCPToolRouter+Testing.m */,
 				F1D3A1000000000000000007 /* LKMCPContextService.h */,
 				F1D3A1000000000000000008 /* LKMCPContextService.m */,
+				F1D3A1000000000000000033 /* LKMCPContextService+Testing.h */,
+				F1D3A1000000000000000034 /* LKMCPContextService+Testing.m */,
 				F1D3A1000000000000000009 /* LKRequirementBindingService.h */,
 				F1D3A100000000000000000A /* LKRequirementBindingService.m */,
 				F1D3A100000000000000000B /* LKRequirementBindingStore.h */,
@@ -1533,6 +1543,8 @@
 				F1D3A1000000000000000026 /* LKRequirementBindingStore.m in Sources */,
 				F1D3A1000000000000000027 /* LKRequirementCodeInfoMenuHelper.m in Sources */,
 				F1D3A1000000000000000030 /* LKMCPRequirementCodeInfoBoardController.m in Sources */,
+				F1D3A1000000000000000037 /* LKMCPContextService+Testing.m in Sources */,
+				F1D3A1000000000000000038 /* LKMCPToolRouter+Testing.m in Sources */,
 				AA56062D2322A733008C82CF /* LKDashboardSearchMethodsView.m in Sources */,
 				AA9CC2C522891EA20014D13B /* LKExportAccessoryView.m in Sources */,
 				AAEC35A52340EAB3009E5040 /* NSString+LookinClient.m in Sources */,

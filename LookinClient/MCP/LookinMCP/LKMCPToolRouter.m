@@ -10,8 +10,11 @@
 #import "LKRequirementBindingService.h"
 #import "LKRequirementBindingStore.h"
 #import "LKMCPError.h"
+#if DEBUG
+#import "LKMCPToolRouter+Testing.h"
+#endif
 
-static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
+#define LKMCPRouterLog(fmt, ...) NSLog((@"[LookinMCP][Router] " fmt), ##__VA_ARGS__)
 
 @interface LKMCPToolRouter ()
 
@@ -41,13 +44,9 @@ static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
                                       arguments:(NSDictionary<NSString *,id> *)arguments
                                           error:(NSError *__autoreleasing  _Nullable *)error {
     NSDictionary<NSString *, id> *safeArguments = [arguments isKindOfClass:[NSDictionary class]] ? arguments : @{};
-    NSDictionary<NSString *, id> *scenarioFlags = [safeArguments[LKMCPScenarioFlagsArgumentKey] isKindOfClass:[NSDictionary class]] ? safeArguments[LKMCPScenarioFlagsArgumentKey] : nil;
-    [self.contextService setScenarioOverrides:scenarioFlags];
-    if (scenarioFlags) {
-        NSMutableDictionary<NSString *, id> *mutableArguments = [safeArguments mutableCopy];
-        [mutableArguments removeObjectForKey:LKMCPScenarioFlagsArgumentKey];
-        safeArguments = mutableArguments.copy;
-    }
+#if DEBUG
+    safeArguments = [self lk_debugArgumentsByApplyingScenarioFlags:safeArguments contextService:self.contextService];
+#endif
 
     if (toolName.length == 0) {
         if (error) {
@@ -57,6 +56,7 @@ static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
                                           hint:@"Use one of lookin.* tool names."
                                      sessionId:nil];
         }
+        LKMCPRouterLog(@"reject empty tool name");
         return nil;
     }
 
@@ -81,6 +81,7 @@ static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
                                           hint:@"Connect an app in Lookin, then retry."
                                      sessionId:nil];
         }
+        LKMCPRouterLog(@"tool requires session but no active session, name=%@", toolName);
         return nil;
     }
 
@@ -98,6 +99,7 @@ static NSString * const LKMCPScenarioFlagsArgumentKey = @"_scenarioFlags";
                                       hint:@"Use one of documented lookin.* tools."
                                  sessionId:sessionId];
     }
+    LKMCPRouterLog(@"unsupported tool name=%@", toolName ?: @"");
     return nil;
 }
 
