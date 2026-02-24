@@ -1,0 +1,12 @@
+{
+  "name": "@cheng-pang/lookinmcp-cli",
+  "version": "0.1.0",
+  "description": "CLI wrapper for local Lookin MCP tools",
+  "bin": {
+    "lookinmcp-cli": "bin/lookinmcp-cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

@@ -10,3 +10,4 @@ lookin-mcp/tmp/
 lookin-mcp/tests/.pytest_cache/
 lookin-mcp/tests/__pycache__/
 .venv/
+lookin-mcp/cli/node_modules/
