@@ -29,6 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
                                                 arguments:(nullable NSDictionary<NSString *, id> *)arguments
                                                     error:(NSError **)error;
 
+/// 返回 MCP `tools/list` 所需的工具定义元数据。
+- (NSArray<NSDictionary<NSString *, id> *> *)mcpToolDefinitions;
+
 @end
 
 NS_ASSUME_NONNULL_END

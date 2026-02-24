@@ -18,9 +18,12 @@
 #import <unistd.h>
 
 static NSString * const kLKMCPHTTPMethodPOST = @"POST";
-static NSString * const kLKMCPHTTPPathTool = @"/mcp/tool";
+static NSString * const kLKMCPHTTPMethodGET = @"GET";
+static NSString * const kLKMCPHTTPPathMCP = @"/mcp";
 static NSUInteger const kLKMCPMaxHTTPRequestBytes = 2 * 1024 * 1024; // 2MB guard
 static NSUInteger const kLKMCPPortFallbackCount = 20;
+static NSString * const kLKMCPProtocolVersion = @"2025-06-18";
+static NSString * const kLKMCPJSONRPCVersion = @"2.0";
 #define LKMCPRuntimeLog(fmt, ...) NSLog((@"[LookinMCP][Runtime] " fmt), ##__VA_ARGS__)
 
 static BOOL LKMCPShouldRetrySocketRead(void) {
@@ -36,6 +39,8 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
 @property(nonatomic, strong) dispatch_source_t acceptSource;
 @property(nonatomic, strong) dispatch_queue_t serverQueue;
 @property(nonatomic, copy) NSString *authorizationToken;
+@property(nonatomic, copy) NSString *clientProtocolVersion;
+@property(nonatomic, assign) BOOL clientDidInitialize;
 
 @end
 
@@ -60,6 +65,8 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
         _toolRouter = [[LKMCPToolRouter alloc] initWithContextService:nil codeInfoService:nil];
         _serverQueue = dispatch_queue_create("com.lookin.mcp.server", DISPATCH_QUEUE_SERIAL);
         _listenSocketFD = -1;
+        _clientProtocolVersion = kLKMCPProtocolVersion;
+        _clientDidInitialize = NO;
     }
     return self;
 }
@@ -89,6 +96,8 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     self.listenSocketFD = listenFD;
     self.listeningPort = resolvedPort;
     self.authorizationToken = [[NSUUID UUID] UUIDString];
+    self.clientProtocolVersion = kLKMCPProtocolVersion;
+    self.clientDidInitialize = NO;
     [self _startAcceptLoopWithSocketFD:listenFD];
     self.running = YES;
     LKMCPRuntimeLog(@"started, listeningPort=%@", @(resolvedPort));
@@ -104,6 +113,8 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     }
     self.listenSocketFD = -1;
     self.authorizationToken = nil;
+    self.clientProtocolVersion = kLKMCPProtocolVersion;
+    self.clientDidInitialize = NO;
     self.sessionId = nil;
     self.running = NO;
     self.listeningPort = 0;
@@ -256,7 +267,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
             NSDictionary *errorEnvelope = [self _errorEnvelopeWithError:readError ?: [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
                                                                                                          message:@"Invalid HTTP request."
                                                                                                      recoverable:YES
-                                                                                                            hint:@"Use POST /mcp/tool with JSON body."
+                                                                                                            hint:@"Use POST /mcp with JSON-RPC body."
                                                                                                        sessionId:nil]
                                                                 sessionId:nil];
             [self _sendJSONPayload:errorEnvelope statusCode:400 socketFD:clientFD];
@@ -269,7 +280,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
         NSDictionary<NSString *, NSString *> *headers = request[@"headers"];
         NSData *bodyData = request[@"body"];
 
-        if (![method isEqualToString:kLKMCPHTTPMethodPOST] || ![path isEqualToString:kLKMCPHTTPPathTool]) {
+        if (![path isEqualToString:kLKMCPHTTPPathMCP]) {
             NSDictionary *payload = @{
                 @"error": @{
                     @"code": @404,
@@ -278,7 +289,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
                         @"code": LKMCPErrorCodeBadArgument,
                         @"message": @"Unsupported MCP endpoint.",
                         @"recoverable": @YES,
-                        @"hint": @"Use POST /mcp/tool.",
+                        @"hint": @"Use POST /mcp.",
                         @"timestamp": [LKMCPError currentTimestampMs]
                     }
                 }
@@ -288,8 +299,49 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
             return;
         }
 
+        if ([method isEqualToString:kLKMCPHTTPMethodGET]) {
+            NSDictionary *payload = @{
+                @"error": @{
+                    @"code": @405,
+                    @"message": @"Method Not Allowed",
+                    @"data": @{
+                        @"code": LKMCPErrorCodeBadArgument,
+                        @"message": @"GET is not supported by this MCP runtime.",
+                        @"recoverable": @YES,
+                        @"hint": @"Use POST /mcp with JSON-RPC body.",
+                        @"timestamp": [LKMCPError currentTimestampMs]
+                    }
+                }
+            };
+            [self _sendJSONPayload:payload statusCode:405 socketFD:clientFD extraHeaders:@{
+                @"MCP-Protocol-Version": kLKMCPProtocolVersion
+            }];
+            close(clientFD);
+            return;
+        }
+
+        if (![method isEqualToString:kLKMCPHTTPMethodPOST]) {
+            NSDictionary *payload = @{
+                @"error": @{
+                    @"code": @405,
+                    @"message": @"Method Not Allowed",
+                    @"data": @{
+                        @"code": LKMCPErrorCodeBadArgument,
+                        @"message": @"Unsupported HTTP method.",
+                        @"recoverable": @YES,
+                        @"hint": @"Use POST /mcp with JSON-RPC body.",
+                        @"timestamp": [LKMCPError currentTimestampMs]
+                    }
+                }
+            };
+            [self _sendJSONPayload:payload statusCode:405 socketFD:clientFD extraHeaders:@{
+                @"MCP-Protocol-Version": kLKMCPProtocolVersion
+            }];
+            close(clientFD);
+            return;
+        }
+
         // Optional token check, kept disabled for current local integration.
-        (void)headers;
 
         NSError *jsonError = nil;
         id requestJSON = [NSJSONSerialization JSONObjectWithData:bodyData options:0 error:&jsonError];
@@ -297,7 +349,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
             NSError *parseError = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
                                                     message:@"Request body must be JSON object."
                                                 recoverable:YES
-                                                       hint:@"Use {\"name\":\"lookin.health\",\"arguments\":{}}."
+                                                       hint:@"Use JSON-RPC 2.0 payload, e.g. initialize/tools/call."
                                                   sessionId:nil];
             [self _sendJSONPayload:[self _errorEnvelopeWithError:parseError sessionId:nil] statusCode:400 socketFD:clientFD];
             close(clientFD);
@@ -305,47 +357,276 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
         }
 
         NSDictionary *requestDict = (NSDictionary *)requestJSON;
-        NSString *toolName = [requestDict[@"name"] isKindOfClass:[NSString class]] ? requestDict[@"name"] : nil;
-        id rawArguments = requestDict[@"arguments"];
-        NSDictionary *arguments = nil;
+        __block NSDictionary *responsePayload = nil;
+        __block NSInteger statusCode = 200;
+        __block NSDictionary<NSString *, NSString *> *extraHeaders = nil;
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            responsePayload = [self _handleMCPRequestJSON:requestDict
+                                                  headers:headers
+                                               statusCode:&statusCode
+                                             extraHeaders:&extraHeaders];
+        });
+
+        [self _sendJSONPayload:responsePayload ?: @{}
+                     statusCode:statusCode
+                       socketFD:clientFD
+                   extraHeaders:extraHeaders];
+        close(clientFD);
+    }
+}
+
+- (NSDictionary<NSString *, id> *)_handleMCPRequestJSON:(NSDictionary<NSString *, id> *)requestJSON
+                                                 headers:(NSDictionary<NSString *, NSString *> *)headers
+                                              statusCode:(NSInteger *)statusCode
+                                            extraHeaders:(NSDictionary<NSString *, NSString *> * __autoreleasing *)extraHeaders {
+    NSMutableDictionary<NSString *, NSString *> *resolvedHeaders = [NSMutableDictionary dictionary];
+    resolvedHeaders[@"MCP-Protocol-Version"] = kLKMCPProtocolVersion;
+    if (self.sessionId.length > 0) {
+        resolvedHeaders[@"Mcp-Session-Id"] = self.sessionId;
+    }
+    if (extraHeaders) {
+        *extraHeaders = [resolvedHeaders copy];
+    }
+
+    return [self _handleJSONRPCRequest:requestJSON headers:headers statusCode:statusCode];
+}
+
+- (NSDictionary<NSString *, id> *)_handleJSONRPCRequest:(NSDictionary<NSString *, id> *)requestJSON
+                                                headers:(NSDictionary<NSString *, NSString *> *)headers
+                                             statusCode:(NSInteger *)statusCode {
+    NSString *jsonrpc = [requestJSON[@"jsonrpc"] isKindOfClass:[NSString class]] ? requestJSON[@"jsonrpc"] : nil;
+    id requestId = requestJSON[@"id"];
+    BOOL hasRequestId = requestId != nil && requestId != [NSNull null];
+    id responseId = hasRequestId ? requestId : [NSNull null];
+    NSString *method = [requestJSON[@"method"] isKindOfClass:[NSString class]] ? requestJSON[@"method"] : nil;
+
+    if (![jsonrpc isEqualToString:kLKMCPJSONRPCVersion] || method.length == 0) {
+        if (statusCode) {
+            *statusCode = 400;
+        }
+        return [self _jsonRPCErrorWithId:responseId
+                                    code:-32600
+                                 message:@"Invalid Request"
+                                    data:@{
+                                        @"hint": @"Use JSON-RPC 2.0 and include method."
+                                    }];
+    }
+
+    NSString *requestedProtocolVersion = headers[@"mcp-protocol-version"];
+    if (requestedProtocolVersion.length > 0 && ![requestedProtocolVersion isEqualToString:kLKMCPProtocolVersion]) {
+        if (statusCode) {
+            *statusCode = 400;
+        }
+        return [self _jsonRPCErrorWithId:responseId
+                                    code:-32602
+                                 message:@"Unsupported MCP protocol version."
+                                    data:@{
+                                        @"expected": kLKMCPProtocolVersion,
+                                        @"received": requestedProtocolVersion
+                                    }];
+    }
+
+    if ([method isEqualToString:@"initialize"]) {
+        if (!hasRequestId) {
+            if (statusCode) {
+                *statusCode = 400;
+            }
+            return [self _jsonRPCErrorWithId:[NSNull null]
+                                        code:-32600
+                                     message:@"initialize must include request id."
+                                        data:nil];
+        }
+        NSDictionary<NSString *, id> *params = [requestJSON[@"params"] isKindOfClass:[NSDictionary class]] ? requestJSON[@"params"] : @{};
+        NSString *clientProtocolVersion = [params[@"protocolVersion"] isKindOfClass:[NSString class]] ? params[@"protocolVersion"] : nil;
+        self.clientProtocolVersion = clientProtocolVersion.length > 0 ? clientProtocolVersion : kLKMCPProtocolVersion;
+        self.clientDidInitialize = NO;
+        NSDictionary<NSString *, id> *result = @{
+            @"protocolVersion": kLKMCPProtocolVersion,
+            @"capabilities": @{
+                @"tools": @{
+                    @"listChanged": @NO
+                }
+            },
+            @"serverInfo": @{
+                @"name": @"lookin-mcp",
+                @"version": @"1.0.0"
+            }
+        };
+        if (statusCode) {
+            *statusCode = 200;
+        }
+        return [self _jsonRPCResultWithId:responseId result:result];
+    }
+
+    if ([method isEqualToString:@"notifications/initialized"]) {
+        self.clientDidInitialize = YES;
+        if (hasRequestId) {
+            if (statusCode) {
+                *statusCode = 200;
+            }
+            return [self _jsonRPCResultWithId:responseId result:[NSNull null]];
+        }
+        if (statusCode) {
+            *statusCode = 202;
+        }
+        return @{};
+    }
+
+    if ([method isEqualToString:@"tools/list"]) {
+        NSDictionary<NSString *, id> *result = @{
+            @"tools": [self.toolRouter mcpToolDefinitions]
+        };
+        if (statusCode) {
+            *statusCode = 200;
+        }
+        return [self _jsonRPCResultWithId:responseId result:result];
+    }
+
+    if ([method isEqualToString:@"tools/call"]) {
+        NSDictionary<NSString *, id> *params = [requestJSON[@"params"] isKindOfClass:[NSDictionary class]] ? requestJSON[@"params"] : nil;
+        if (!params) {
+            if (statusCode) {
+                *statusCode = 400;
+            }
+            return [self _jsonRPCErrorWithId:responseId
+                                        code:-32602
+                                     message:@"Invalid params"
+                                        data:@{
+                                            @"hint": @"params must be an object with name and arguments."
+                                        }];
+        }
+        NSString *toolName = [params[@"name"] isKindOfClass:[NSString class]] ? params[@"name"] : nil;
+        if (toolName.length == 0) {
+            if (statusCode) {
+                *statusCode = 400;
+            }
+            return [self _jsonRPCErrorWithId:responseId
+                                        code:-32602
+                                     message:@"Invalid params"
+                                        data:@{
+                                            @"hint": @"tools/call requires non-empty params.name."
+                                        }];
+        }
+
+        id rawArguments = params[@"arguments"];
+        NSDictionary<NSString *, id> *arguments = nil;
         if (!rawArguments || rawArguments == [NSNull null]) {
             arguments = @{};
         } else if ([rawArguments isKindOfClass:[NSDictionary class]]) {
             arguments = rawArguments;
         } else {
-            NSError *argError = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                                  message:@"arguments must be object."
-                                              recoverable:YES
-                                                     hint:@"Use JSON object for arguments."
-                                                sessionId:nil];
-            [self _sendJSONPayload:[self _errorEnvelopeWithError:argError sessionId:nil] statusCode:400 socketFD:clientFD];
-            close(clientFD);
-            return;
+            if (statusCode) {
+                *statusCode = 400;
+            }
+            return [self _jsonRPCErrorWithId:responseId
+                                        code:-32602
+                                     message:@"Invalid params"
+                                        data:@{
+                                            @"hint": @"params.arguments must be an object."
+                                        }];
         }
 
-        __block NSDictionary<NSString *, id> *toolResult = nil;
-        __block NSError *toolError = nil;
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            toolResult = [self handleToolRequestWithName:toolName arguments:arguments error:&toolError];
-        });
-
-        NSDictionary *responsePayload = nil;
-        NSInteger statusCode = 200;
+        NSError *toolError = nil;
+        NSDictionary<NSString *, id> *toolResult = [self handleToolRequestWithName:toolName arguments:arguments error:&toolError];
+        NSDictionary<NSString *, id> *callResult = nil;
         if (toolResult) {
-            responsePayload = @{
-                @"result": @{
-                    @"structuredContent": toolResult
-                }
+            NSString *toolSummaryText = [self _serializedJSONStringFromObject:toolResult] ?: @"{}";
+            callResult = @{
+                @"content": @[
+                    @{
+                        @"type": @"text",
+                        @"text": toolSummaryText
+                    }
+                ],
+                @"structuredContent": toolResult
             };
         } else {
-            LKMCPRuntimeLog(@"tool request failed, name=%@, error=%@", toolName ?: @"", toolError.localizedDescription ?: @"");
-            responsePayload = [self _errorEnvelopeWithError:toolError sessionId:nil];
-            statusCode = 400;
+            NSDictionary<NSString *, id> *errorData = [LKMCPError errorDataFromError:toolError
+                                                                          defaultCode:LKMCPErrorCodeBadArgument
+                                                                       defaultMessage:@"MCP tool call failed."
+                                                                            sessionId:self.sessionId];
+            NSString *errorText = [NSString stringWithFormat:@"Tool %@ failed: %@", toolName, errorData[@"message"] ?: @"Unknown error"];
+            callResult = @{
+                @"isError": @YES,
+                @"content": @[
+                    @{
+                        @"type": @"text",
+                        @"text": errorText
+                    }
+                ],
+                @"structuredContent": @{
+                    @"error": errorData
+                }
+            };
         }
-
-        [self _sendJSONPayload:responsePayload statusCode:statusCode socketFD:clientFD];
-        close(clientFD);
+        if (statusCode) {
+            *statusCode = 200;
+        }
+        return [self _jsonRPCResultWithId:responseId result:callResult];
     }
+
+    if ([method isEqualToString:@"ping"]) {
+        if (statusCode) {
+            *statusCode = 200;
+        }
+        return [self _jsonRPCResultWithId:responseId result:@{}];
+    }
+
+    if ([method hasPrefix:@"notifications/"] && !hasRequestId) {
+        if (statusCode) {
+            *statusCode = 202;
+        }
+        return @{};
+    }
+
+    if (statusCode) {
+        *statusCode = 400;
+    }
+    return [self _jsonRPCErrorWithId:responseId
+                                code:-32601
+                             message:@"Method not found"
+                                data:@{
+                                    @"method": method ?: @""
+                                }];
+}
+
+- (NSDictionary<NSString *, id> *)_jsonRPCResultWithId:(id)requestId
+                                                 result:(id)result {
+    id safeResult = result ?: [NSNull null];
+    return @{
+        @"jsonrpc": kLKMCPJSONRPCVersion,
+        @"id": requestId ?: [NSNull null],
+        @"result": safeResult
+    };
+}
+
+- (NSDictionary<NSString *, id> *)_jsonRPCErrorWithId:(id)requestId
+                                                  code:(NSInteger)code
+                                               message:(NSString *)message
+                                                  data:(NSDictionary<NSString *, id> * _Nullable)data {
+    NSMutableDictionary<NSString *, id> *error = [NSMutableDictionary dictionary];
+    error[@"code"] = @(code);
+    error[@"message"] = message ?: @"Unknown JSON-RPC error";
+    if (data.count > 0) {
+        error[@"data"] = data;
+    }
+    return @{
+        @"jsonrpc": kLKMCPJSONRPCVersion,
+        @"id": requestId ?: [NSNull null],
+        @"error": error
+    };
+}
+
+- (NSString *)_serializedJSONStringFromObject:(id)object {
+    if (!object) {
+        return nil;
+    }
+    NSError *jsonError = nil;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:object options:0 error:&jsonError];
+    if (!jsonData || jsonError) {
+        return nil;
+    }
+    return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 }
 
 - (NSDictionary<NSString *, id> *)_readHTTPRequestFromSocket:(int)socketFD
@@ -420,7 +701,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
             *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
                                        message:@"Invalid HTTP request line."
                                    recoverable:YES
-                                          hint:@"Use 'POST /mcp/tool HTTP/1.1'."
+                                          hint:@"Use 'POST /mcp HTTP/1.1'."
                                      sessionId:nil];
         }
         return nil;
@@ -499,6 +780,13 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
 - (void)_sendJSONPayload:(NSDictionary<NSString *, id> *)payload
                statusCode:(NSInteger)statusCode
                  socketFD:(int)socketFD {
+    [self _sendJSONPayload:payload statusCode:statusCode socketFD:socketFD extraHeaders:nil];
+}
+
+- (void)_sendJSONPayload:(NSDictionary<NSString *, id> *)payload
+              statusCode:(NSInteger)statusCode
+                socketFD:(int)socketFD
+            extraHeaders:(NSDictionary<NSString *, NSString *> * _Nullable)extraHeaders {
     NSError *jsonError = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:payload ?: @{} options:0 error:&jsonError];
     if (!jsonData || jsonError) {
@@ -508,18 +796,29 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     NSString *statusText = @"Bad Request";
     if (statusCode == 200) {
         statusText = @"OK";
+    } else if (statusCode == 202) {
+        statusText = @"Accepted";
     } else if (statusCode == 404) {
         statusText = @"Not Found";
+    } else if (statusCode == 405) {
+        statusText = @"Method Not Allowed";
     }
-    NSString *header = [NSString stringWithFormat:
-                        @"HTTP/1.1 %ld %@\r\n"
-                        @"Content-Type: application/json; charset=utf-8\r\n"
-                        @"Content-Length: %lu\r\n"
-                        @"Connection: close\r\n"
-                        @"\r\n",
-                        (long)statusCode,
-                        statusText,
-                        (unsigned long)jsonData.length];
+
+    NSMutableString *header = [NSMutableString stringWithFormat:
+                               @"HTTP/1.1 %ld %@\r\n"
+                               @"Content-Type: application/json; charset=utf-8\r\n"
+                               @"Content-Length: %lu\r\n"
+                               @"Connection: close\r\n",
+                               (long)statusCode,
+                               statusText,
+                               (unsigned long)jsonData.length];
+    [extraHeaders enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, NSString * _Nonnull obj, BOOL * _Nonnull stop) {
+        if (key.length > 0 && obj.length > 0) {
+            [header appendFormat:@"%@: %@\r\n", key, obj];
+        }
+    }];
+    [header appendString:@"\r\n"];
+
     NSData *headerData = [header dataUsingEncoding:NSUTF8StringEncoding];
     [self _writeAllData:headerData toSocket:socketFD];
     [self _writeAllData:jsonData toSocket:socketFD];

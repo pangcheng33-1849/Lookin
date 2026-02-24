@@ -103,4 +103,138 @@
     return nil;
 }
 
+- (NSArray<NSDictionary<NSString *,id> *> *)mcpToolDefinitions {
+    NSDictionary<NSString *, id> *emptyInputSchema = @{
+        @"type": @"object",
+        @"properties": @{},
+        @"additionalProperties": @NO
+    };
+    NSDictionary<NSString *, id> *genericObjectOutputSchema = @{
+        @"type": @"object"
+    };
+
+    NSDictionary<NSString *, id> *contextInputSchema = @{
+        @"type": @"object",
+        @"properties": @{
+            @"childrenDepth": @{
+                @"type": @"integer",
+                @"minimum": @0,
+                @"default": @1
+            }
+        },
+        @"additionalProperties": @NO
+    };
+
+    NSDictionary<NSString *, id> *setRequirementInputSchema = @{
+        @"type": @"object",
+        @"required": @[@"operation", @"items"],
+        @"properties": @{
+            @"operation": @{
+                @"type": @"string",
+                @"enum": @[@"append", @"remove"]
+            },
+            @"items": @{
+                @"type": @"array",
+                @"items": @{
+                    @"type": @"object",
+                    @"properties": @{
+                        @"requirementId": @{@"type": @"string"},
+                        @"description": @{@"type": @"string"},
+                        @"codeInfo": @{@"type": @"string"}
+                    },
+                    @"required": @[@"requirementId"],
+                    @"additionalProperties": @YES
+                }
+            }
+        },
+        @"additionalProperties": @NO
+    };
+
+    NSDictionary<NSString *, id> *captureScreenshotInputSchema = @{
+        @"type": @"object",
+        @"properties": @{
+            @"format": @{
+                @"type": @"string",
+                @"enum": @[@"png"]
+            },
+            @"scale": @{
+                @"type": @"number",
+                @"exclusiveMinimum": @0
+            },
+            @"highlightSelectedRegion": @{
+                @"type": @"boolean"
+            }
+        },
+        @"additionalProperties": @NO
+    };
+
+    return @[
+        @{
+            @"name": @"lookin.health",
+            @"title": @"Lookin Health",
+            @"description": @"Return runtime/session health status for Lookin MCP.",
+            @"inputSchema": emptyInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @YES,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @YES,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.get_selected_view_context",
+            @"title": @"Get Selected View Context",
+            @"description": @"Return selected iOS view dashboard context from current Lookin session.",
+            @"inputSchema": contextInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @YES,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @YES,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.set_requirement_items",
+            @"title": @"Set Requirement Items",
+            @"description": @"Append or remove requirement items and their code info records.",
+            @"inputSchema": setRequirementInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @NO,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @NO,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.get_requirement_code_info",
+            @"title": @"Get Requirement Code Info",
+            @"description": @"List all requirement code info records in current session.",
+            @"inputSchema": emptyInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @YES,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @YES,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.capture_selected_view_screenshot",
+            @"title": @"Capture Selected View Screenshot",
+            @"description": @"Capture screenshot for currently selected view and return local file metadata.",
+            @"inputSchema": captureScreenshotInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @NO,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @NO,
+                @"openWorldHint": @NO
+            }
+        }
+    ];
+}
+
 @end
