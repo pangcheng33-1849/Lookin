@@ -19,6 +19,7 @@
 #import "LookinAttributesSection.h"
 #import "LookinAttribute.h"
 #import "Lookin-Swift.h"
+#define LKMCPCodeInfoMenuLog(fmt, ...) NSLog((@"[LookinMCP][CodeInfoMenu] " fmt), ##__VA_ARGS__)
 
 static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoFieldDescription = @"description";
@@ -56,6 +57,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
                  openBoardAction:(SEL)openBoardAction
                addCodeInfoAction:(SEL)addCodeInfoAction {
     if (LKMCPFlagEnabled(@"LOOKIN_MCP_DISABLE_CODE_INFO_MENU", LKMCPDisableCodeInfoMenuDefaultsKey)) {
+        LKMCPCodeInfoMenuLog(@"menu injection skipped by feature flag");
         return;
     }
     if (!displayItem) {
@@ -116,6 +118,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
 
 + (void)openCodeInfoBoardForDataSource:(LKHierarchyDataSource *)dataSource {
     if (LKMCPFlagEnabled(@"LOOKIN_MCP_DISABLE_CODE_INFO_BOARD", LKMCPDisableCodeInfoBoardDefaultsKey)) {
+        LKMCPCodeInfoMenuLog(@"open board skipped by feature flag");
         return;
     }
     NSString *sessionId = [self _sessionIdFromDataSource:dataSource] ?: @"";
@@ -128,22 +131,26 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
     NSString *requirementId = [payload[LKMCPCodeInfoMenuPayloadRequirementId] isKindOfClass:[NSString class]] ? payload[LKMCPCodeInfoMenuPayloadRequirementId] : @"";
     LookinDisplayItem *displayItem = [payload[LKMCPCodeInfoMenuPayloadDisplayItem] isKindOfClass:[LookinDisplayItem class]] ? payload[LKMCPCodeInfoMenuPayloadDisplayItem] : nil;
     if (requirementId.length == 0 || !displayItem) {
+        LKMCPCodeInfoMenuLog(@"add code info aborted: invalid payload");
         return NO;
     }
 
     NSString *sessionId = [self _sessionIdFromDataSource:dataSource];
     if (sessionId.length == 0) {
+        LKMCPCodeInfoMenuLog(@"add code info aborted: missing session");
         return NO;
     }
 
     NSString *codeInfo = [self _generatedCodeInfoTextFromDisplayItem:displayItem];
     if (codeInfo.length == 0) {
+        LKMCPCodeInfoMenuLog(@"add code info aborted: generated codeInfo empty, requirementId=%@", requirementId);
         return NO;
     }
 
     LKRequirementCodeInfoStore *store = [LKRequirementCodeInfoStore sharedInstance];
     NSArray<NSDictionary<NSString *, NSString *> *> *records = [store recordsForSessionId:sessionId];
     if (records.count == 0) {
+        LKMCPCodeInfoMenuLog(@"add code info aborted: no records in session=%@", sessionId);
         return NO;
     }
 
@@ -152,6 +159,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
         return [obj[LKMCPCodeInfoFieldRequirementId] isEqualToString:requirementId];
     }];
     if (targetIndex == NSNotFound) {
+        LKMCPCodeInfoMenuLog(@"add code info aborted: requirement not found, requirementId=%@", requirementId);
         return NO;
     }
 
@@ -166,6 +174,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
         LKMCPRequirementCodeInfoChangedSessionIdKey: sessionId ?: @"",
         LKMCPRequirementCodeInfoChangedOperationKey: @"edit"
     }];
+    LKMCPCodeInfoMenuLog(@"add code info success, requirementId=%@, sessionId=%@", requirementId, sessionId);
     return YES;
 }
 
@@ -183,6 +192,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
 }
 
 + (NSString *)_generatedCodeInfoTextFromDisplayItem:(LookinDisplayItem *)displayItem {
+    // Current policy: only first class and first relation are written into codeInfo.
     NSString *firstClass = [self _firstClassTextFromDisplayItem:displayItem];
     NSString *firstRelation = [self _firstRelationTextFromDisplayItem:displayItem];
 

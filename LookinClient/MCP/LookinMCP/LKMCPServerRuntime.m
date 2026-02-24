@@ -21,6 +21,7 @@ static NSString * const kLKMCPHTTPMethodPOST = @"POST";
 static NSString * const kLKMCPHTTPPathTool = @"/mcp/tool";
 static NSUInteger const kLKMCPMaxHTTPRequestBytes = 2 * 1024 * 1024; // 2MB guard
 static NSUInteger const kLKMCPPortFallbackCount = 20;
+#define LKMCPRuntimeLog(fmt, ...) NSLog((@"[LookinMCP][Runtime] " fmt), ##__VA_ARGS__)
 
 static BOOL LKMCPShouldRetrySocketRead(void) {
     return errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK;
@@ -81,6 +82,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     NSUInteger resolvedPort = 0;
     int listenFD = [self _createListenSocketWithPreferredPort:port resolvedPort:&resolvedPort error:error];
     if (listenFD < 0) {
+        LKMCPRuntimeLog(@"failed to start at preferred port=%@ (bind failed)", @(port));
         return NO;
     }
 
@@ -89,6 +91,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     self.authorizationToken = [[NSUUID UUID] UUIDString];
     [self _startAcceptLoopWithSocketFD:listenFD];
     self.running = YES;
+    LKMCPRuntimeLog(@"started, listeningPort=%@", @(resolvedPort));
     return YES;
 }
 
@@ -104,6 +107,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     self.sessionId = nil;
     self.running = NO;
     self.listeningPort = 0;
+    LKMCPRuntimeLog(@"stopped");
 }
 
 - (NSDictionary<NSString *,id> *)handleToolRequestWithName:(NSString *)toolName
@@ -122,6 +126,9 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
     NSDictionary<NSString *, id> *result = [self.toolRouter routeToolName:toolName arguments:arguments error:error];
     NSString *resolvedSessionId = [self _extractSessionIdFromToolResult:result];
     self.sessionId = resolvedSessionId;
+    if (!result && error && *error) {
+        LKMCPRuntimeLog(@"tool failed, name=%@, error=%@", toolName ?: @"", (*error).localizedDescription ?: @"");
+    }
     return result;
 }
 
@@ -140,6 +147,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
             return fd;
         }
         if (errno != EADDRINUSE) {
+            LKMCPRuntimeLog(@"bind failed at port=%@, errno=%d", @(port), errno);
             break;
         }
     }
@@ -188,6 +196,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
 }
 
 - (void)_startAcceptLoopWithSocketFD:(int)socketFD {
+    // Keep accept on serial queue; each accepted client is handled on utility queue.
     __weak typeof(self) weakSelf = self;
     self.acceptSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)socketFD, 0, self.serverQueue);
     dispatch_source_set_event_handler(self.acceptSource,^{
@@ -329,6 +338,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
                 }
             };
         } else {
+            LKMCPRuntimeLog(@"tool request failed, name=%@, error=%@", toolName ?: @"", toolError.localizedDescription ?: @"");
             responsePayload = [self _errorEnvelopeWithError:toolError sessionId:nil];
             statusCode = 400;
         }
@@ -340,6 +350,7 @@ static BOOL LKMCPShouldRetrySocketRead(void) {
 
 - (NSDictionary<NSString *, id> *)_readHTTPRequestFromSocket:(int)socketFD
                                                         error:(NSError *__autoreleasing  _Nullable *)error {
+    // Read in two phases: header first, then body by Content-Length.
     NSMutableData *buffer = [NSMutableData data];
     NSRange headerRange = NSMakeRange(NSNotFound, 0);
 

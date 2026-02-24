@@ -8,6 +8,7 @@
 #import "LKRequirementBindingStore.h"
 #import "LKMCPError.h"
 #import "LKMCPRequirementCodeInfoBoardController.h"
+#define LKMCPCodeInfoStoreLog(fmt, ...) NSLog((@"[LookinMCP][CodeInfoStore] " fmt), ##__VA_ARGS__)
 
 static NSString * const LKMCPCodeInfoPersistencePrefix = @"mcp_requirement_code_info_";
 static NSString * const LKMCPCodeInfoPayloadSavedAtKey = @"savedAtMs";
@@ -50,6 +51,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 - (NSArray<NSDictionary<NSString *,NSString *> *> *)recordsForSessionId:(NSString *)sessionId {
+    // Read-through strategy: memory first, then UserDefaults fallback.
     [self cleanupExpiredRecords];
     NSArray<NSDictionary<NSString *, NSString *> *> *records = self.memoryStore[sessionId];
     if (records) {
@@ -76,6 +78,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 - (void)saveRecords:(NSArray<NSDictionary<NSString *,NSString *> *> *)records sessionId:(NSString *)sessionId {
+    // Normalize before persisting to keep schema stable across UI/tool writes.
     NSArray<NSDictionary<NSString *, NSString *> *> *normalized = [self _normalizeRecordsArray:records];
     self.memoryStore[sessionId] = normalized;
 
@@ -109,6 +112,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
     long long nowMs = [LKMCPError currentTimestampMs].longLongValue;
     NSDictionary<NSString *, id> *allDefaults = [[NSUserDefaults standardUserDefaults] dictionaryRepresentation];
+    __block NSUInteger removedCount = 0;
     [allDefaults enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
         if (![key hasPrefix:LKMCPCodeInfoPersistencePrefix]) {
             return;
@@ -117,6 +121,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         NSNumber *savedAt = [payload[LKMCPCodeInfoPayloadSavedAtKey] isKindOfClass:[NSNumber class]] ? payload[LKMCPCodeInfoPayloadSavedAtKey] : nil;
         if (!savedAt) {
             [[NSUserDefaults standardUserDefaults] removeObjectForKey:key];
+            removedCount += 1;
             return;
         }
         long long elapsedMs = nowMs - savedAt.longLongValue;
@@ -124,19 +129,27 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
             [[NSUserDefaults standardUserDefaults] removeObjectForKey:key];
             NSString *sessionId = [key substringFromIndex:LKMCPCodeInfoPersistencePrefix.length];
             [self.memoryStore removeObjectForKey:sessionId];
+            removedCount += 1;
         }
     }];
+    if (removedCount > 0) {
+        LKMCPCodeInfoStoreLog(@"cleanup removed expired persisted records=%@", @(removedCount));
+    }
 }
 
 - (void)clearAllPersistedRecords {
+    NSUInteger memoryCount = self.memoryStore.count;
     [self.memoryStore removeAllObjects];
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSDictionary<NSString *, id> *allDefaults = [defaults dictionaryRepresentation];
+    __block NSUInteger removedCount = 0;
     [allDefaults enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
         if ([key hasPrefix:LKMCPCodeInfoPersistencePrefix]) {
             [defaults removeObjectForKey:key];
+            removedCount += 1;
         }
     }];
+    LKMCPCodeInfoStoreLog(@"clear all records, memorySessions=%@, persistedKeys=%@", @(memoryCount), @(removedCount));
 }
 
 - (void)showRequirementCodeInfoBoardForSessionId:(NSString *)sessionId {
@@ -145,6 +158,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
             self.codeInfoBoardController = [[LKMCPRequirementCodeInfoBoardController alloc] initWithStore:self];
         }
         [self.codeInfoBoardController showBoardForSessionId:sessionId ?: @""];
+        LKMCPCodeInfoStoreLog(@"show board for sessionId=%@", sessionId ?: @"");
     });
 }
 

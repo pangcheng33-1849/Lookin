@@ -9,6 +9,7 @@
 #import "LKRequirementBindingStore.h"
 #import "LKMCPError.h"
 #import "LKMCPNotifications.h"
+#define LKMCPCodeInfoBoardLog(fmt, ...) NSLog((@"[LookinMCP][CodeInfoBoard] " fmt), ##__VA_ARGS__)
 
 static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoFieldDescription = @"description";
@@ -31,6 +32,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 - (void)drawBackgroundInRect:(NSRect)dirtyRect {
+    // Green means valid row; red means invalid (empty/duplicate requirementId).
     NSColor *backgroundColor = self.rowValid
         ? [NSColor colorWithRed:0.16 green:0.62 blue:0.24 alpha:0.10]
         : [NSColor colorWithRed:0.78 green:0.25 blue:0.22 alpha:0.14];
@@ -112,6 +114,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     [self showWindow:nil];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
+    LKMCPCodeInfoBoardLog(@"show board, sessionId=%@, rows=%@", self.sessionId ?: @"", @(self.draftRecords.count));
 }
 
 - (void)windowDidResize:(NSNotification *)notification {
@@ -332,6 +335,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     } else {
         [self _clearEditor];
     }
+    LKMCPCodeInfoBoardLog(@"reloaded from store, sessionId=%@, rows=%@", self.sessionId ?: @"", @(self.draftRecords.count));
 }
 
 - (void)_clearEditor {
@@ -460,6 +464,11 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         LKMCPRequirementCodeInfoChangedSessionIdKey: self.sessionId ?: @"",
         LKMCPRequirementCodeInfoChangedOperationKey: operation.length > 0 ? operation : @"edit"
     }];
+    if ([operation isEqualToString:@"append"] ||
+        [operation isEqualToString:@"remove"] ||
+        [operation isEqualToString:@"clear"]) {
+        LKMCPCodeInfoBoardLog(@"persisted operation=%@, sessionId=%@, rows=%@", operation, self.sessionId ?: @"", @(self.draftRecords.count));
+    }
 }
 
 - (void)_handleAdd:(id)sender {
@@ -474,6 +483,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     NSInteger newRow = (NSInteger)self.draftRecords.count - 1;
     [self.tableView selectRowIndexes:[NSIndexSet indexSetWithIndex:(NSUInteger)newRow] byExtendingSelection:NO];
     [self _setStatus:NSLocalizedString(@"Added a new row.", nil)];
+    LKMCPCodeInfoBoardLog(@"added row, sessionId=%@, row=%@", self.sessionId ?: @"", @(newRow));
 }
 
 - (void)_handleDelete:(id)sender {
@@ -491,6 +501,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         [self _clearEditor];
     }
     [self _setStatus:NSLocalizedString(@"Deleted selected row.", nil)];
+    LKMCPCodeInfoBoardLog(@"deleted row, sessionId=%@, selectedRow=%@", self.sessionId ?: @"", @(row));
 }
 
 - (void)_handleReload:(id)sender {
@@ -508,6 +519,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         LKMCPRequirementCodeInfoChangedSessionIdKey: self.sessionId ?: @"",
         LKMCPRequirementCodeInfoChangedOperationKey: @"clear"
     }];
+    LKMCPCodeInfoBoardLog(@"cleared all rows, sessionId=%@", self.sessionId ?: @"");
 }
 
 #pragma mark - NSTableViewDataSource
