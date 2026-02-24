@@ -706,12 +706,12 @@
 
 ## 5. 与 PRD/技术方案对齐说明
 
-- 与 `lookin-mcp/PRD.md` 对齐：
+- 与 `lookin-mcp/mcp-spec/PRD.md` 对齐：
   - FR-1 以 Dashboard 属性结构为核心输出
   - FR-2 `codeInfo` 为 `String` 且格式不限制
   - FR-3 返回截图文件路径
   - FR-4 所有 Tool 返回 `sessionId/timestamp`（失败时可选）
-- 与 `lookin-mcp/TECHNICAL_DESIGN.md` 对齐：
+- 与 `lookin-mcp/mcp-spec/TECHNICAL_DESIGN.md` 对齐：
   - `lookin.health` 低复杂度保留
   - 传输使用 Streamable HTTP（本地回环）
   - 短期持久化策略不影响本 API 契约

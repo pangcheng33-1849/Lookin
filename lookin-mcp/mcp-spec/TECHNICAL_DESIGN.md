@@ -2,7 +2,7 @@
 
 ## 1. 目标与范围
 
-本方案用于将 `lookin-mcp/PRD.md` 落为可开发实现，覆盖 P0：
+本方案用于将 `lookin-mcp/mcp-spec/PRD.md` 落为可开发实现，覆盖 P0：
 
 - `lookin.health`
 - `lookin.get_selected_view_context`

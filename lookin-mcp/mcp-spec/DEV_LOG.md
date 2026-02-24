@@ -54,7 +54,7 @@
 
 - FR-1 字段调整完成：`attrType` 已替换为 `attrTitle`（字符串）。
   - 服务端：`Lookin-Develop/LookinClient/MCP/LookinMCP/LKMCPContextService.m`
-  - 文档：`lookin-mcp/API_SPEC.md`、`lookin-mcp/PRD.md`
+  - 文档：`lookin-mcp/mcp-spec/API_SPEC.md`、`lookin-mcp/mcp-spec/PRD.md`
   - 测试：`lookin-mcp/tests/test_functional.py` 已新增断言，校验 `attrTitle` 必填且 `attrType` 不再返回。
 - `LookinAutoLayoutConstraint` 已从“直接 description 字符串”改为“结构化 JSON”输出：
   - 在 `_jsonSafeValue` 中增加约束对象专用分支 `_jsonSafeConstraint`。
@@ -147,7 +147,7 @@
 
 - `lookin-mcp/tests/`
 - `Lookin-Develop/LookinClient/MCP/LookinMCP/`
-- `lookin-mcp/IMPLEMENTATION_PLAN.md`
+- `lookin-mcp/mcp-spec/IMPLEMENTATION_PLAN.md`
 
 ### 当前状态
 
