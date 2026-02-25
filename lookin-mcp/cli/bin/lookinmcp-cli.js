@@ -31,6 +31,37 @@ const COMMANDS = {
       return args;
     }
   },
+  get_hierarchy_by_node_id: {
+    mcpTool: 'lookin.get_hierarchy_by_node_id',
+    description: 'Get hierarchy subtree from roots or a specified nodeId.',
+    example: 'lookinmcp-cli get_hierarchy_by_node_id --node-id 12345 --depth 2',
+    parseArgs: parseGetHierarchyByNodeIdArgs,
+    buildArgs: (opts) => {
+      const args = {};
+      if (typeof opts.nodeId === 'string' && opts.nodeId.length > 0) {
+        args.nodeId = opts.nodeId;
+      }
+      if (typeof opts.depth === 'number') {
+        args.depth = opts.depth;
+      }
+      return args;
+    }
+  },
+  get_view_context_by_node_id: {
+    mcpTool: 'lookin.get_view_context_by_node_id',
+    description: 'Get dashboard attributes and hierarchy context of target nodeId.',
+    example: 'lookinmcp-cli get_view_context_by_node_id --node-id 12345 --children-depth 1',
+    parseArgs: parseGetViewContextByNodeIdArgs,
+    buildArgs: (opts) => {
+      const args = {
+        nodeId: opts.nodeId
+      };
+      if (typeof opts.childrenDepth === 'number') {
+        args.childrenDepth = opts.childrenDepth;
+      }
+      return args;
+    }
+  },
   set_requirement_items: {
     mcpTool: 'lookin.set_requirement_items',
     description: 'Append/remove requirement items for Code Info management board.',
@@ -55,6 +86,16 @@ const COMMANDS = {
     example: 'lookinmcp-cli capture_selected_view_screenshot --format png --output /tmp/selected.png',
     parseArgs: parseCaptureScreenshotArgs,
     buildArgs: (opts) => ({
+      format: opts.format
+    })
+  },
+  capture_view_screenshot_by_node_id: {
+    mcpTool: 'lookin.capture_view_screenshot_by_node_id',
+    description: 'Capture screenshot for target nodeId.',
+    example: 'lookinmcp-cli capture_view_screenshot_by_node_id --node-id 12345 --format png --output /tmp/node.png',
+    parseArgs: parseCaptureScreenshotByNodeIdArgs,
+    buildArgs: (opts) => ({
+      nodeId: opts.nodeId,
       format: opts.format
     })
   }
@@ -245,9 +286,12 @@ function printRootHelp() {
     'Commands:',
     '  health                               -> lookin.health',
     '  get_selected_view_context            -> lookin.get_selected_view_context',
+    '  get_hierarchy_by_node_id             -> lookin.get_hierarchy_by_node_id',
+    '  get_view_context_by_node_id          -> lookin.get_view_context_by_node_id',
     '  set_requirement_items                -> lookin.set_requirement_items',
     '  get_requirement_code_info            -> lookin.get_requirement_code_info',
     '  capture_selected_view_screenshot     -> lookin.capture_selected_view_screenshot',
+    '  capture_view_screenshot_by_node_id   -> lookin.capture_view_screenshot_by_node_id',
     '',
     'Run `lookinmcp-cli <command> --help` for command details.'
   ];
@@ -272,10 +316,20 @@ function printCommandHelp(commandName) {
 
   if (commandName === 'get_selected_view_context') {
     lines.push('  --children-depth <int>    Optional depth of children tree (>= 0).');
+  } else if (commandName === 'get_hierarchy_by_node_id') {
+    lines.push('  --node-id <id>            Optional nodeId. Omit to start from roots.');
+    lines.push('  --depth <int>             Optional hierarchy depth (>= 0).');
+  } else if (commandName === 'get_view_context_by_node_id') {
+    lines.push('  --node-id <id>            Required nodeId.');
+    lines.push('  --children-depth <int>    Optional depth of children tree (>= 0).');
   } else if (commandName === 'set_requirement_items') {
     lines.push('  --operation <append|remove>   Required operation.');
     lines.push("  --items-json '<json>'          Required JSON array for items.");
   } else if (commandName === 'capture_selected_view_screenshot') {
+    lines.push('  --format <png>            Screenshot format, only png is supported.');
+    lines.push('  --output <path>           Optional output file path (copy from MCP result path).');
+  } else if (commandName === 'capture_view_screenshot_by_node_id') {
+    lines.push('  --node-id <id>            Required nodeId.');
     lines.push('  --format <png>            Screenshot format, only png is supported.');
     lines.push('  --output <path>           Optional output file path (copy from MCP result path).');
   } else {
@@ -387,6 +441,110 @@ function parseGetSelectedViewContextArgs(args) {
   return {
     help: false,
     options: {
+      childrenDepth: childrenDepth
+    }
+  };
+}
+
+function parseGetHierarchyByNodeIdArgs(args) {
+  let nodeId;
+  let depth;
+
+  let index = 0;
+  while (index < args.length) {
+    const token = args[index];
+    if (token === '--help' || token === '-h') {
+      return { help: true, options: {} };
+    }
+    if (token === '--node-id') {
+      const value = args[index + 1];
+      if (!value) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --node-id.');
+      }
+      nodeId = value;
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--node-id=')) {
+      nodeId = token.slice('--node-id='.length);
+      index += 1;
+      continue;
+    }
+    if (token === '--depth') {
+      const value = args[index + 1];
+      if (value === undefined) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --depth.');
+      }
+      depth = parseNonNegativeInt(value, '--depth');
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--depth=')) {
+      depth = parseNonNegativeInt(token.slice('--depth='.length), '--depth');
+      index += 1;
+      continue;
+    }
+    throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', `Unknown option for get_hierarchy_by_node_id: ${token}`);
+  }
+
+  return {
+    help: false,
+    options: {
+      nodeId: nodeId,
+      depth: depth
+    }
+  };
+}
+
+function parseGetViewContextByNodeIdArgs(args) {
+  let nodeId;
+  let childrenDepth;
+
+  let index = 0;
+  while (index < args.length) {
+    const token = args[index];
+    if (token === '--help' || token === '-h') {
+      return { help: true, options: {} };
+    }
+    if (token === '--node-id') {
+      const value = args[index + 1];
+      if (!value) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --node-id.');
+      }
+      nodeId = value;
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--node-id=')) {
+      nodeId = token.slice('--node-id='.length);
+      index += 1;
+      continue;
+    }
+    if (token === '--children-depth') {
+      const value = args[index + 1];
+      if (value === undefined) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --children-depth.');
+      }
+      childrenDepth = parseNonNegativeInt(value, '--children-depth');
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--children-depth=')) {
+      childrenDepth = parseNonNegativeInt(token.slice('--children-depth='.length), '--children-depth');
+      index += 1;
+      continue;
+    }
+    throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', `Unknown option for get_view_context_by_node_id: ${token}`);
+  }
+
+  if (!nodeId) {
+    throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'get_view_context_by_node_id requires --node-id <id>.');
+  }
+
+  return {
+    help: false,
+    options: {
+      nodeId: nodeId,
       childrenDepth: childrenDepth
     }
   };
@@ -513,6 +671,76 @@ function parseCaptureScreenshotArgs(args) {
   };
 }
 
+function parseCaptureScreenshotByNodeIdArgs(args) {
+  let nodeId;
+  let format = 'png';
+  let output;
+
+  let index = 0;
+  while (index < args.length) {
+    const token = args[index];
+    if (token === '--help' || token === '-h') {
+      return { help: true, options: {} };
+    }
+    if (token === '--node-id') {
+      const value = args[index + 1];
+      if (!value) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --node-id.');
+      }
+      nodeId = value;
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--node-id=')) {
+      nodeId = token.slice('--node-id='.length);
+      index += 1;
+      continue;
+    }
+    if (token === '--format') {
+      const value = args[index + 1];
+      if (!value) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --format.');
+      }
+      format = value;
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--format=')) {
+      format = token.slice('--format='.length);
+      index += 1;
+      continue;
+    }
+    if (token === '--output') {
+      const value = args[index + 1];
+      if (!value) {
+        throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'Missing value for --output.');
+      }
+      output = value;
+      index += 2;
+      continue;
+    }
+    if (token.startsWith('--output=')) {
+      output = token.slice('--output='.length);
+      index += 1;
+      continue;
+    }
+    throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', `Unknown option for capture_view_screenshot_by_node_id: ${token}`);
+  }
+
+  if (!nodeId) {
+    throw new CLIError('LOOKINMCP_CLI_BAD_ARGUMENT', 'capture_view_screenshot_by_node_id requires --node-id <id>.');
+  }
+
+  return {
+    help: false,
+    options: {
+      nodeId: nodeId,
+      format: format,
+      output: output
+    }
+  };
+}
+
 function parseNonNegativeInt(raw, optionName) {
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 0) {
@@ -624,7 +852,7 @@ async function main() {
   const toolArguments = command.buildArgs(parsedCommand.options);
   let result = await client.callTool(command.mcpTool, toolArguments);
 
-  if (parsed.commandName === 'capture_selected_view_screenshot') {
+  if (parsed.commandName === 'capture_selected_view_screenshot' || parsed.commandName === 'capture_view_screenshot_by_node_id') {
     result = await maybeCopyScreenshotOutput(result, parsedCommand.options.output);
   }
 

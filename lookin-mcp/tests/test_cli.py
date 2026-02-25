@@ -29,6 +29,9 @@ def test_cli_root_help() -> None:
     assert result.returncode == 0
     assert "lookinmcp-cli" in result.stdout
     assert "get_selected_view_context" in result.stdout
+    assert "get_hierarchy_by_node_id" in result.stdout
+    assert "get_view_context_by_node_id" in result.stdout
+    assert "capture_view_screenshot_by_node_id" in result.stdout
 
 
 def test_cli_subcommand_help() -> None:

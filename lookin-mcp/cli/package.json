@@ -1,6 +1,6 @@
 {
   "name": "@cheng-pang/lookinmcp-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI wrapper for local Lookin MCP tools",
   "bin": {
     "lookinmcp-cli": "bin/lookinmcp-cli.js"
