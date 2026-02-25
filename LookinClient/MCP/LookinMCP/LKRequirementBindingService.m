@@ -61,7 +61,7 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
     }
 
     NSMutableSet<NSString *> *seenInRequest = [NSMutableSet set];
-    NSMutableArray<NSDictionary<NSString *, NSString *> *> *normalized = [NSMutableArray array];
+    NSMutableArray<LKRequirementCodeInfoRecord *> *normalized = [NSMutableArray array];
     for (id obj in items) {
         NSDictionary *item = [obj isKindOfClass:[NSDictionary class]] ? (NSDictionary *)obj : nil;
         NSString *rid = [item[@"requirementId"] isKindOfClass:[NSString class]] ? item[@"requirementId"] : nil;
@@ -99,26 +99,24 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
             return nil;
         }
 
-        [normalized addObject:@{
-            @"requirementId": rid,
-            @"description": desc,
-            @"codeInfo": @""
-        }];
+        [normalized addObject:[[LKRequirementCodeInfoRecord alloc] initWithRequirementId:rid
+                                                                          itemDescription:desc
+                                                                                 codeInfo:@""]];
     }
 
-    NSMutableArray<NSDictionary<NSString *, NSString *> *> *records = [[self.store recordsForSessionId:sessionId] mutableCopy];
+    NSMutableArray<LKRequirementCodeInfoRecord *> *records = [[self.store recordModelsForSessionId:sessionId] mutableCopy];
     records = records ?: [NSMutableArray array];
-    NSMutableDictionary<NSString *, NSDictionary<NSString *, NSString *> *> *index = [NSMutableDictionary dictionary];
-    [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
-        NSString *rid = obj[@"requirementId"];
+    NSMutableDictionary<NSString *, LKRequirementCodeInfoRecord *> *index = [NSMutableDictionary dictionary];
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+        NSString *rid = obj.requirementId;
         if (rid.length > 0) {
             index[rid] = obj;
         }
     }];
 
     if ([operation isEqualToString:@"append"]) {
-        for (NSDictionary<NSString *, NSString *> *item in normalized) {
-            NSString *rid = item[@"requirementId"];
+        for (LKRequirementCodeInfoRecord *item in normalized) {
+            NSString *rid = item.requirementId;
             if (index[rid] != nil) {
                 if (error) {
                     *error = [LKMCPError errorWithCode:LKMCPErrorCodeDuplicateRequirementID
@@ -133,8 +131,8 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
         }
         [records addObjectsFromArray:normalized];
     } else {
-        for (NSDictionary<NSString *, NSString *> *item in normalized) {
-            NSString *rid = item[@"requirementId"];
+        for (LKRequirementCodeInfoRecord *item in normalized) {
+            NSString *rid = item.requirementId;
             if (index[rid] == nil) {
                 if (error) {
                     *error = [LKMCPError errorWithCode:LKMCPErrorCodeRequirementNotFound
@@ -148,15 +146,15 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
             }
         }
         NSMutableSet<NSString *> *toDelete = [NSMutableSet set];
-        [normalized enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
-            [toDelete addObject:obj[@"requirementId"]];
+        [normalized enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+            [toDelete addObject:obj.requirementId ?: @""];
         }];
-        [records filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary<NSString *, NSString *> *record, NSDictionary<NSString *,id> *_) {
-            return ![toDelete containsObject:record[@"requirementId"]];
+        [records filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(LKRequirementCodeInfoRecord *record, NSDictionary<NSString *,id> *_) {
+            return ![toDelete containsObject:record.requirementId ?: @""];
         }]];
     }
 
-    [self.store saveRecords:records sessionId:sessionId];
+    [self.store saveRecordModels:records sessionId:sessionId];
     [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
                                                         object:nil
                                                       userInfo:@{
@@ -166,10 +164,10 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
     LKMCPCodeInfoServiceLog(@"set_requirement_items success, operation=%@, total=%@, sessionId=%@", operation, @(records.count), sessionId ?: @"");
 
     NSMutableArray<NSDictionary<NSString *, NSString *> *> *responseItems = [NSMutableArray array];
-    [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
         [responseItems addObject:@{
-            @"requirementId": obj[@"requirementId"] ?: @"",
-            @"description": obj[@"description"] ?: @""
+            @"requirementId": obj.requirementId ?: @"",
+            @"description": obj.itemDescription ?: @""
         }];
     }];
     return @{
@@ -185,13 +183,13 @@ NSString * const LKMCPRequirementCodeInfoChangedOperationKey = @"operation";
                                                                 error:(NSError *__autoreleasing  _Nullable *)error {
     (void)error;
     // Keep output minimal and stable for MCP consumers.
-    NSArray<NSDictionary<NSString *, NSString *> *> *records = [self.store recordsForSessionId:sessionId];
+    NSArray<LKRequirementCodeInfoRecord *> *records = [self.store recordModelsForSessionId:sessionId];
     NSMutableArray<NSDictionary<NSString *, NSString *> *> *result = [NSMutableArray arrayWithCapacity:records.count];
-    [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
         [result addObject:@{
-            @"requirementId": obj[@"requirementId"] ?: @"",
-            @"description": obj[@"description"] ?: @"",
-            @"codeInfo": obj[@"codeInfo"] ?: @""
+            @"requirementId": obj.requirementId ?: @"",
+            @"description": obj.itemDescription ?: @"",
+            @"codeInfo": obj.codeInfo ?: @""
         }];
     }];
     return @{

@@ -67,7 +67,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 @property(nonatomic, strong) NSScrollView *codeInfoScrollView;
 @property(nonatomic, strong) NSTextView *codeInfoTextView;
 
-@property(nonatomic, strong) NSMutableArray<NSMutableDictionary<NSString *, NSString *> *> *draftRecords;
+@property(nonatomic, strong) NSMutableArray<LKRequirementCodeInfoRecord *> *draftRecords;
 @property(nonatomic, assign) NSInteger editingRow;
 @property(nonatomic, assign) BOOL suppressEditorCallbacks;
 
@@ -312,14 +312,10 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 }
 
 - (void)_reloadFromStore {
-    NSArray<NSDictionary<NSString *, NSString *> *> *records = self.sessionId.length > 0 ? [self.store recordsForSessionId:self.sessionId] : @[];
-    NSMutableArray<NSMutableDictionary<NSString *, NSString *> *> *mutableRecords = [NSMutableArray arrayWithCapacity:records.count];
-    [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
-        [mutableRecords addObject:[@{
-            LKMCPCodeInfoFieldRequirementId: obj[LKMCPCodeInfoFieldRequirementId] ?: @"",
-            LKMCPCodeInfoFieldDescription: obj[LKMCPCodeInfoFieldDescription] ?: @"",
-            LKMCPCodeInfoFieldCodeInfo: obj[LKMCPCodeInfoFieldCodeInfo] ?: @""
-        } mutableCopy]];
+    NSArray<LKRequirementCodeInfoRecord *> *records = self.sessionId.length > 0 ? [self.store recordModelsForSessionId:self.sessionId] : @[];
+    NSMutableArray<LKRequirementCodeInfoRecord *> *mutableRecords = [NSMutableArray arrayWithCapacity:records.count];
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+        [mutableRecords addObject:[obj copy]];
     }];
     self.draftRecords = mutableRecords;
     self.editingRow = NSNotFound;
@@ -353,11 +349,11 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         [self _clearEditor];
         return;
     }
-    NSDictionary<NSString *, NSString *> *record = self.draftRecords[(NSUInteger)row];
+    LKRequirementCodeInfoRecord *record = self.draftRecords[(NSUInteger)row];
     self.suppressEditorCallbacks = YES;
-    self.requirementField.stringValue = record[LKMCPCodeInfoFieldRequirementId] ?: @"";
-    self.descriptionField.stringValue = record[LKMCPCodeInfoFieldDescription] ?: @"";
-    self.codeInfoTextView.string = record[LKMCPCodeInfoFieldCodeInfo] ?: @"";
+    self.requirementField.stringValue = record.requirementId ?: @"";
+    self.descriptionField.stringValue = record.itemDescription ?: @"";
+    self.codeInfoTextView.string = record.codeInfo ?: @"";
     self.suppressEditorCallbacks = NO;
     self.editingRow = row;
 }
@@ -366,14 +362,16 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     if (self.editingRow == NSNotFound || self.editingRow < 0 || self.editingRow >= (NSInteger)self.draftRecords.count) {
         return;
     }
-    NSMutableDictionary<NSString *, NSString *> *record = self.draftRecords[(NSUInteger)self.editingRow];
+    LKRequirementCodeInfoRecord *record = self.draftRecords[(NSUInteger)self.editingRow];
+    NSString *description = [[self.descriptionField.stringValue ?: @"" stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] copy];
+    NSString *codeInfo = [self.codeInfoTextView.string copy] ?: @"";
     // requirementId is immutable in board UI; keep existing value.
-    record[LKMCPCodeInfoFieldDescription] = [self.descriptionField.stringValue ?: @"" stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    record[LKMCPCodeInfoFieldCodeInfo] = self.codeInfoTextView.string ?: @"";
+    record.itemDescription = description ?: @"";
+    record.codeInfo = codeInfo ?: @"";
 }
 
-- (NSString *)_trimmedRequirementIdFromRecord:(NSDictionary<NSString *, NSString *> *)record {
-    NSString *rid = [record[LKMCPCodeInfoFieldRequirementId] isKindOfClass:[NSString class]] ? record[LKMCPCodeInfoFieldRequirementId] : @"";
+- (NSString *)_trimmedRequirementIdFromRecord:(LKRequirementCodeInfoRecord *)record {
+    NSString *rid = [record.requirementId isKindOfClass:[NSString class]] ? record.requirementId : @"";
     return [rid stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
 
@@ -382,14 +380,14 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         return NO;
     }
 
-    NSDictionary<NSString *, NSString *> *record = self.draftRecords[(NSUInteger)row];
+    LKRequirementCodeInfoRecord *record = self.draftRecords[(NSUInteger)row];
     NSString *rid = [self _trimmedRequirementIdFromRecord:record];
     if (rid.length == 0) {
         return NO;
     }
 
     __block NSUInteger duplicateCount = 0;
-    [self.draftRecords enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
+    [self.draftRecords enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
         NSString *candidate = [self _trimmedRequirementIdFromRecord:obj];
         if ([candidate isEqualToString:rid]) {
             duplicateCount += 1;
@@ -404,7 +402,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 - (nullable NSString *)_validateDraftRecords {
     NSMutableSet<NSString *> *seenIds = [NSMutableSet set];
     __block NSString *errorMessage = nil;
-    [self.draftRecords enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
+    [self.draftRecords enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *record, NSUInteger idx, BOOL *stop) {
         NSString *rid = [self _trimmedRequirementIdFromRecord:record];
         if (rid.length == 0) {
             errorMessage = [NSString stringWithFormat:NSLocalizedString(@"Row %lu: requirementId cannot be empty.", nil), (unsigned long)(idx + 1)];
@@ -421,21 +419,25 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     return errorMessage;
 }
 
-- (NSArray<NSDictionary<NSString *, NSString *> *> *)_normalizedDraftRecords {
-    NSMutableArray<NSDictionary<NSString *, NSString *> *> *result = [NSMutableArray arrayWithCapacity:self.draftRecords.count];
-    [self.draftRecords enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
-        [result addObject:@{
-            LKMCPCodeInfoFieldRequirementId: [record[LKMCPCodeInfoFieldRequirementId] isKindOfClass:[NSString class]] ? record[LKMCPCodeInfoFieldRequirementId] : @"",
-            LKMCPCodeInfoFieldDescription: [record[LKMCPCodeInfoFieldDescription] isKindOfClass:[NSString class]] ? record[LKMCPCodeInfoFieldDescription] : @"",
-            LKMCPCodeInfoFieldCodeInfo: [record[LKMCPCodeInfoFieldCodeInfo] isKindOfClass:[NSString class]] ? record[LKMCPCodeInfoFieldCodeInfo] : @""
-        }];
+- (NSArray<LKRequirementCodeInfoRecord *> *)_normalizedDraftRecords {
+    NSMutableArray<LKRequirementCodeInfoRecord *> *result = [NSMutableArray arrayWithCapacity:self.draftRecords.count];
+    [self.draftRecords enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *record, NSUInteger idx, BOOL *stop) {
+        NSString *rid = [([record.requirementId isKindOfClass:[NSString class]] ? record.requirementId : @"") copy];
+        if (rid.length == 0) {
+            return;
+        }
+        NSString *desc = [([record.itemDescription isKindOfClass:[NSString class]] ? record.itemDescription : @"") copy];
+        NSString *codeInfo = [([record.codeInfo isKindOfClass:[NSString class]] ? record.codeInfo : @"") copy];
+        [result addObject:[[LKRequirementCodeInfoRecord alloc] initWithRequirementId:rid
+                                                                      itemDescription:desc
+                                                                             codeInfo:codeInfo]];
     }];
     return result.copy;
 }
 
 - (NSString *)_defaultRequirementIdForNewRow {
     NSMutableSet<NSString *> *usedIds = [NSMutableSet set];
-    [self.draftRecords enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
+    [self.draftRecords enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *record, NSUInteger idx, BOOL *stop) {
         NSString *rid = [self _trimmedRequirementIdFromRecord:record];
         if (rid.length > 0) {
             [usedIds addObject:rid];
@@ -455,8 +457,8 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     if (self.sessionId.length == 0) {
         return;
     }
-    NSArray<NSDictionary<NSString *, NSString *> *> *normalized = [self _normalizedDraftRecords];
-    [self.store saveRecords:normalized sessionId:self.sessionId];
+    NSArray<LKRequirementCodeInfoRecord *> *normalized = [self _normalizedDraftRecords];
+    [self.store saveRecordModels:normalized sessionId:self.sessionId];
 
     [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
                                                         object:self
@@ -473,11 +475,9 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
 - (void)_handleAdd:(id)sender {
     [self _commitEditorToEditingRow];
-    [self.draftRecords addObject:[@{
-        LKMCPCodeInfoFieldRequirementId: [self _defaultRequirementIdForNewRow],
-        LKMCPCodeInfoFieldDescription: @"",
-        LKMCPCodeInfoFieldCodeInfo: @""
-    } mutableCopy]];
+    [self.draftRecords addObject:[[LKRequirementCodeInfoRecord alloc] initWithRequirementId:[self _defaultRequirementIdForNewRow]
+                                                                             itemDescription:@""
+                                                                                    codeInfo:@""]];
     [self _persistDraftRecordsAndNotifyWithOperation:@"append"];
     [self.tableView reloadData];
     NSInteger newRow = (NSInteger)self.draftRecords.count - 1;
@@ -534,7 +534,7 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     if (row < 0 || row >= (NSInteger)self.draftRecords.count) {
         return nil;
     }
-    NSDictionary<NSString *, NSString *> *record = self.draftRecords[(NSUInteger)row];
+    LKRequirementCodeInfoRecord *record = self.draftRecords[(NSUInteger)row];
     NSString *columnID = tableColumn.identifier;
 
     NSTableCellView *cellView = [tableView makeViewWithIdentifier:columnID owner:self];
@@ -549,7 +549,15 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         [cellView addSubview:textField];
     }
     BOOL isValidRow = [self _isDraftRecordValidAtRow:row];
-    cellView.textField.stringValue = record[columnID] ?: @"";
+    if ([columnID isEqualToString:LKMCPCodeInfoFieldRequirementId]) {
+        cellView.textField.stringValue = record.requirementId ?: @"";
+    } else if ([columnID isEqualToString:LKMCPCodeInfoFieldDescription]) {
+        cellView.textField.stringValue = record.itemDescription ?: @"";
+    } else if ([columnID isEqualToString:LKMCPCodeInfoFieldCodeInfo]) {
+        cellView.textField.stringValue = record.codeInfo ?: @"";
+    } else {
+        cellView.textField.stringValue = @"";
+    }
     cellView.textField.textColor = isValidRow ? [NSColor labelColor] : [NSColor systemRedColor];
     return cellView;
 }

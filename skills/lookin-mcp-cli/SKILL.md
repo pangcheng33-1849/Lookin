@@ -29,7 +29,7 @@ version: 0.1.0
 
 ```bash
 # 方式1：一次性执行（不安装）
-npx @cheng-pang/lookinmcp-cli health
+npx --yes @cheng-pang/lookinmcp-cli health
 
 # 方式2：全局安装（推荐高频使用）
 npm install -g @cheng-pang/lookinmcp-cli

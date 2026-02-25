@@ -19,9 +19,52 @@ static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoFieldDescription = @"description";
 static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
+@implementation LKRequirementCodeInfoRecord
+
+- (instancetype)initWithRequirementId:(NSString *)requirementId
+                      itemDescription:(NSString *)itemDescription
+                             codeInfo:(NSString *)codeInfo {
+    self = [super init];
+    if (self) {
+        _requirementId = [requirementId copy] ?: @"";
+        _itemDescription = [itemDescription copy] ?: @"";
+        _codeInfo = [codeInfo copy] ?: @"";
+    }
+    return self;
+}
+
++ (instancetype)recordFromDictionary:(NSDictionary<NSString *,NSString *> *)dictionary {
+    if (![dictionary isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    NSString *rid = [([dictionary[LKMCPCodeInfoFieldRequirementId] isKindOfClass:[NSString class]] ? dictionary[LKMCPCodeInfoFieldRequirementId] : @"") copy];
+    if (rid.length == 0) {
+        return nil;
+    }
+    NSString *desc = [([dictionary[LKMCPCodeInfoFieldDescription] isKindOfClass:[NSString class]] ? dictionary[LKMCPCodeInfoFieldDescription] : @"") copy];
+    NSString *codeInfo = [([dictionary[LKMCPCodeInfoFieldCodeInfo] isKindOfClass:[NSString class]] ? dictionary[LKMCPCodeInfoFieldCodeInfo] : @"") copy];
+    return [[self alloc] initWithRequirementId:rid itemDescription:desc codeInfo:codeInfo];
+}
+
+- (NSDictionary<NSString *,NSString *> *)dictionaryRepresentation {
+    return @{
+        LKMCPCodeInfoFieldRequirementId: self.requirementId ?: @"",
+        LKMCPCodeInfoFieldDescription: self.itemDescription ?: @"",
+        LKMCPCodeInfoFieldCodeInfo: self.codeInfo ?: @""
+    };
+}
+
+- (id)copyWithZone:(NSZone *)zone {
+    return [[LKRequirementCodeInfoRecord allocWithZone:zone] initWithRequirementId:self.requirementId
+                                                                    itemDescription:self.itemDescription
+                                                                           codeInfo:self.codeInfo];
+}
+
+@end
+
 @interface LKRequirementCodeInfoStore ()
 
-@property(nonatomic, strong) NSMutableDictionary<NSString *, NSArray<NSDictionary<NSString *, NSString *> *> *> *memoryStore;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, NSArray<LKRequirementCodeInfoRecord *> *> *memoryStore;
 @property(nonatomic, strong) LKMCPRequirementCodeInfoBoardController *codeInfoBoardController;
 
 @end
@@ -50,19 +93,20 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     return self;
 }
 
-- (NSArray<NSDictionary<NSString *,NSString *> *> *)recordsForSessionId:(NSString *)sessionId {
+- (NSArray<LKRequirementCodeInfoRecord *> *)recordModelsForSessionId:(NSString *)sessionId {
+    NSString *safeSessionId = sessionId ?: @"";
     // Read-through strategy: memory first, then UserDefaults fallback.
     [self cleanupExpiredRecords];
-    NSArray<NSDictionary<NSString *, NSString *> *> *records = self.memoryStore[sessionId];
+    NSArray<LKRequirementCodeInfoRecord *> *records = self.memoryStore[safeSessionId];
     if (records) {
-        return records.copy;
+        return [self _copiedRecordModels:records];
     }
 
     if (![self _shouldPersistToUserDefaults]) {
         return @[];
     }
 
-    NSDictionary *payload = [[NSUserDefaults standardUserDefaults] objectForKey:[self _persistedKeyForSessionId:sessionId]];
+    NSDictionary *payload = [[NSUserDefaults standardUserDefaults] objectForKey:[self _persistedKeyForSessionId:safeSessionId]];
     if (![payload isKindOfClass:[NSDictionary class]]) {
         return @[];
     }
@@ -72,17 +116,18 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
         return @[];
     }
 
-    NSArray<NSDictionary<NSString *, NSString *> *> *normalized = [self _normalizeRecordsArray:persistedRecords];
-    self.memoryStore[sessionId] = normalized;
-    return normalized.copy;
+    NSArray<LKRequirementCodeInfoRecord *> *normalized = [self _normalizeRecordModelsArray:persistedRecords];
+    self.memoryStore[safeSessionId] = normalized;
+    return [self _copiedRecordModels:normalized];
 }
 
-- (void)saveRecords:(NSArray<NSDictionary<NSString *,NSString *> *> *)records sessionId:(NSString *)sessionId {
+- (void)saveRecordModels:(NSArray<LKRequirementCodeInfoRecord *> *)records sessionId:(NSString *)sessionId {
+    NSString *safeSessionId = sessionId ?: @"";
     // Normalize before persisting to keep schema stable across UI/tool writes.
-    NSArray<NSDictionary<NSString *, NSString *> *> *normalized = [self _normalizeRecordsArray:records];
-    self.memoryStore[sessionId] = normalized;
+    NSArray<LKRequirementCodeInfoRecord *> *normalized = [self _normalizeRecordModelsArray:records];
+    self.memoryStore[safeSessionId] = normalized;
 
-    NSString *persistedKey = [self _persistedKeyForSessionId:sessionId];
+    NSString *persistedKey = [self _persistedKeyForSessionId:safeSessionId];
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (![self _shouldPersistToUserDefaults]) {
         [defaults removeObjectForKey:persistedKey];
@@ -91,14 +136,25 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
 
     NSDictionary *payload = @{
         LKMCPCodeInfoPayloadSavedAtKey: [LKMCPError currentTimestampMs],
-        LKMCPCodeInfoPayloadRecordsKey: normalized
+        LKMCPCodeInfoPayloadRecordsKey: [self _dictionariesFromRecordModels:normalized]
     };
     [defaults setObject:payload forKey:persistedKey];
 }
 
+- (NSArray<NSDictionary<NSString *,NSString *> *> *)recordsForSessionId:(NSString *)sessionId {
+    NSArray<LKRequirementCodeInfoRecord *> *records = [self recordModelsForSessionId:sessionId];
+    return [self _dictionariesFromRecordModels:records];
+}
+
+- (void)saveRecords:(NSArray<NSDictionary<NSString *,NSString *> *> *)records sessionId:(NSString *)sessionId {
+    NSArray<LKRequirementCodeInfoRecord *> *models = [self _normalizeRecordModelsArray:records];
+    [self saveRecordModels:models sessionId:sessionId];
+}
+
 - (void)removeRecordsForSessionId:(NSString *)sessionId {
-    [self.memoryStore removeObjectForKey:sessionId];
-    [[NSUserDefaults standardUserDefaults] removeObjectForKey:[self _persistedKeyForSessionId:sessionId]];
+    NSString *safeSessionId = sessionId ?: @"";
+    [self.memoryStore removeObjectForKey:safeSessionId];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:[self _persistedKeyForSessionId:safeSessionId]];
 }
 
 - (void)cleanupExpiredRecords {
@@ -207,24 +263,44 @@ static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
     return [truthyValues containsObject:[raw lowercaseString] ?: @""];
 }
 
-- (NSArray<NSDictionary<NSString *, NSString *> *> *)_normalizeRecordsArray:(NSArray *)records {
-    NSMutableArray<NSDictionary<NSString *, NSString *> *> *result = [NSMutableArray array];
+- (NSArray<LKRequirementCodeInfoRecord *> *)_normalizeRecordModelsArray:(NSArray *)records {
+    NSMutableArray<LKRequirementCodeInfoRecord *> *result = [NSMutableArray array];
     [records enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-        NSDictionary *raw = [obj isKindOfClass:[NSDictionary class]] ? (NSDictionary *)obj : nil;
-        if (!raw) {
+        LKRequirementCodeInfoRecord *record = nil;
+        if ([obj isKindOfClass:[LKRequirementCodeInfoRecord class]]) {
+            record = [(LKRequirementCodeInfoRecord *)obj copy];
+        } else if ([obj isKindOfClass:[NSDictionary class]]) {
+            record = [LKRequirementCodeInfoRecord recordFromDictionary:(NSDictionary *)obj];
+        }
+        if (!record || record.requirementId.length == 0) {
             return;
         }
-        NSString *rid = [raw[LKMCPCodeInfoFieldRequirementId] isKindOfClass:[NSString class]] ? raw[LKMCPCodeInfoFieldRequirementId] : @"";
-        NSString *desc = [raw[LKMCPCodeInfoFieldDescription] isKindOfClass:[NSString class]] ? raw[LKMCPCodeInfoFieldDescription] : @"";
-        NSString *codeInfo = [raw[LKMCPCodeInfoFieldCodeInfo] isKindOfClass:[NSString class]] ? raw[LKMCPCodeInfoFieldCodeInfo] : @"";
-        if (rid.length == 0) {
+        [result addObject:record];
+    }];
+    return result.copy;
+}
+
+- (NSArray<NSDictionary<NSString *, NSString *> *> *)_dictionariesFromRecordModels:(NSArray<LKRequirementCodeInfoRecord *> *)records {
+    NSMutableArray<NSDictionary<NSString *, NSString *> *> *result = [NSMutableArray arrayWithCapacity:records.count];
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+        if (![obj isKindOfClass:[LKRequirementCodeInfoRecord class]]) {
             return;
         }
-        [result addObject:@{
-            LKMCPCodeInfoFieldRequirementId: rid,
-            LKMCPCodeInfoFieldDescription: desc,
-            LKMCPCodeInfoFieldCodeInfo: codeInfo
-        }];
+        if (obj.requirementId.length == 0) {
+            return;
+        }
+        [result addObject:[obj dictionaryRepresentation]];
+    }];
+    return result.copy;
+}
+
+- (NSArray<LKRequirementCodeInfoRecord *> *)_copiedRecordModels:(NSArray<LKRequirementCodeInfoRecord *> *)records {
+    NSMutableArray<LKRequirementCodeInfoRecord *> *result = [NSMutableArray arrayWithCapacity:records.count];
+    [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+        if (![obj isKindOfClass:[LKRequirementCodeInfoRecord class]]) {
+            return;
+        }
+        [result addObject:[obj copy]];
     }];
     return result.copy;
 }

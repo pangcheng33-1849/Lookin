@@ -21,10 +21,6 @@
 #import "Lookin-Swift.h"
 #define LKMCPCodeInfoMenuLog(fmt, ...) NSLog((@"[LookinMCP][CodeInfoMenu] " fmt), ##__VA_ARGS__)
 
-static NSString * const LKMCPCodeInfoFieldRequirementId = @"requirementId";
-static NSString * const LKMCPCodeInfoFieldDescription = @"description";
-static NSString * const LKMCPCodeInfoFieldCodeInfo = @"codeInfo";
-
 static NSString * const LKMCPCodeInfoMenuPayloadRequirementId = @"requirementId";
 static NSString * const LKMCPCodeInfoMenuPayloadDisplayItem = @"displayItem";
 static NSString * const LKMCPDisableCodeInfoMenuDefaultsKey = @"mcp_disable_code_info_menu";
@@ -83,7 +79,7 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
     })];
 
     NSString *sessionId = [self _sessionIdFromDataSource:dataSource];
-    NSArray<NSDictionary<NSString *, NSString *> *> *records = sessionId.length > 0 ? [[LKRequirementCodeInfoStore sharedInstance] recordsForSessionId:sessionId] : @[];
+    NSArray<LKRequirementCodeInfoRecord *> *records = sessionId.length > 0 ? [[LKRequirementCodeInfoStore sharedInstance] recordModelsForSessionId:sessionId] : @[];
 
     [submenu addItem:[NSMenuItem separatorItem]];
     if (records.count == 0) {
@@ -94,9 +90,9 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
             emptyItem;
         })];
     } else {
-        [records enumerateObjectsUsingBlock:^(NSDictionary<NSString *,NSString *> *record, NSUInteger idx, BOOL *stop) {
-            NSString *rid = record[LKMCPCodeInfoFieldRequirementId] ?: @"";
-            NSString *desc = record[LKMCPCodeInfoFieldDescription] ?: @"";
+        [records enumerateObjectsUsingBlock:^(LKRequirementCodeInfoRecord *record, NSUInteger idx, BOOL *stop) {
+            NSString *rid = record.requirementId ?: @"";
+            NSString *desc = record.itemDescription ?: @"";
             NSString *title = desc.length > 0 ? [NSString stringWithFormat:@"%@-%@", rid, desc] : rid;
             [submenu addItem:({
                 NSMenuItem *item = [NSMenuItem new];
@@ -148,26 +144,26 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
     }
 
     LKRequirementCodeInfoStore *store = [LKRequirementCodeInfoStore sharedInstance];
-    NSArray<NSDictionary<NSString *, NSString *> *> *records = [store recordsForSessionId:sessionId];
+    NSArray<LKRequirementCodeInfoRecord *> *records = [store recordModelsForSessionId:sessionId];
     if (records.count == 0) {
         LKMCPCodeInfoMenuLog(@"add code info aborted: no records in session=%@", sessionId);
         return NO;
     }
 
-    NSMutableArray<NSDictionary<NSString *, NSString *> *> *mutableRecords = [records mutableCopy];
-    NSUInteger targetIndex = [mutableRecords indexOfObjectPassingTest:^BOOL(NSDictionary<NSString *,NSString *> *obj, NSUInteger idx, BOOL *stop) {
-        return [obj[LKMCPCodeInfoFieldRequirementId] isEqualToString:requirementId];
+    NSMutableArray<LKRequirementCodeInfoRecord *> *mutableRecords = [records mutableCopy];
+    NSUInteger targetIndex = [mutableRecords indexOfObjectPassingTest:^BOOL(LKRequirementCodeInfoRecord *obj, NSUInteger idx, BOOL *stop) {
+        return [obj.requirementId isEqualToString:requirementId];
     }];
     if (targetIndex == NSNotFound) {
         LKMCPCodeInfoMenuLog(@"add code info aborted: requirement not found, requirementId=%@", requirementId);
         return NO;
     }
 
-    NSMutableDictionary<NSString *, NSString *> *updatedRecord = [mutableRecords[targetIndex] mutableCopy];
-    updatedRecord[LKMCPCodeInfoFieldCodeInfo] = codeInfo;
+    LKRequirementCodeInfoRecord *updatedRecord = [mutableRecords[targetIndex] copy];
+    updatedRecord.codeInfo = [codeInfo copy];
     mutableRecords[targetIndex] = updatedRecord;
 
-    [store saveRecords:[mutableRecords copy] sessionId:sessionId];
+    [store saveRecordModels:[mutableRecords copy] sessionId:sessionId];
     [[NSNotificationCenter defaultCenter] postNotificationName:NotificationName_RequirementCodeInfoDidChange
                                                         object:nil
                                                       userInfo:@{

@@ -18,6 +18,22 @@ typedef NS_ENUM(NSUInteger, LKMCPCodeInfoTTLMode) {
     LKMCPCodeInfoTTLMode1Day = 2,
 };
 
+/// Requirement Code Info 单条记录模型。
+@interface LKRequirementCodeInfoRecord : NSObject <NSCopying>
+
+@property(nonatomic, copy) NSString *requirementId;
+@property(nonatomic, copy) NSString *itemDescription;
+@property(nonatomic, copy) NSString *codeInfo;
+
+- (instancetype)initWithRequirementId:(NSString *)requirementId
+                      itemDescription:(NSString *)itemDescription
+                             codeInfo:(NSString *)codeInfo NS_DESIGNATED_INITIALIZER;
+- (instancetype)init NS_UNAVAILABLE;
++ (nullable instancetype)recordFromDictionary:(NSDictionary<NSString *, NSString *> *)dictionary;
+- (NSDictionary<NSString *, NSString *> *)dictionaryRepresentation;
+
+@end
+
 /// Requirement Code Info 存储层（内存 + UserDefaults）。
 @interface LKRequirementCodeInfoStore : NSObject
 
@@ -26,6 +42,11 @@ typedef NS_ENUM(NSUInteger, LKMCPCodeInfoTTLMode) {
 
 /// 持久化 TTL 策略。
 @property(nonatomic, assign) LKMCPCodeInfoTTLMode ttlMode;
+
+/// 读取指定会话的 requirement 记录（对象模型）。
+- (NSArray<LKRequirementCodeInfoRecord *> *)recordModelsForSessionId:(NSString *)sessionId;
+/// 保存指定会话的 requirement 记录（对象模型，覆盖写）。
+- (void)saveRecordModels:(NSArray<LKRequirementCodeInfoRecord *> *)records sessionId:(NSString *)sessionId;
 
 /// 读取指定会话的 requirement 记录。
 - (NSArray<NSDictionary<NSString *, NSString *> *> *)recordsForSessionId:(NSString *)sessionId;
