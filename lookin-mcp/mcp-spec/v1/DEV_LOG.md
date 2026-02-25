@@ -54,7 +54,7 @@
 
 - FR-1 字段调整完成：`attrType` 已替换为 `attrTitle`（字符串）。
   - 服务端：`Lookin-Develop/LookinClient/MCP/LookinMCP/LKMCPContextService.m`
-  - 文档：`lookin-mcp/mcp-spec/API_SPEC.md`、`lookin-mcp/mcp-spec/PRD.md`
+  - 文档：`lookin-mcp/mcp-spec/v1/API_SPEC.md`、`lookin-mcp/mcp-spec/v1/PRD.md`
   - 测试：`lookin-mcp/tests/test_functional.py` 已新增断言，校验 `attrTitle` 必填且 `attrType` 不再返回。
 - `LookinAutoLayoutConstraint` 已从“直接 description 字符串”改为“结构化 JSON”输出：
   - 在 `_jsonSafeValue` 中增加约束对象专用分支 `_jsonSafeConstraint`。
@@ -118,7 +118,6 @@
 - 强化 FR-1 约束：
   - `get_selected_view_context` 对 `customInfo`/无 dashboard 属性节点返回 `LOOKIN_MCP_BAD_ARGUMENT`，避免“部分成功”。
 - 补齐截图参数校验：
-  - `highlightSelectedRegion` 仅接受布尔值。
   - `scale` 仅接受 `> 0` 的数字。
 - 左侧/中间右键菜单新增 `Code Info` 入口（第一版）：
   - `LKHierarchyView.menuNeedsUpdate` 注入 `Code Info >` 子菜单。
@@ -147,7 +146,7 @@
 
 - `lookin-mcp/tests/`
 - `Lookin-Develop/LookinClient/MCP/LookinMCP/`
-- `lookin-mcp/mcp-spec/IMPLEMENTATION_PLAN.md`
+- `lookin-mcp/mcp-spec/v1/IMPLEMENTATION_PLAN.md`
 
 ### 当前状态
 
