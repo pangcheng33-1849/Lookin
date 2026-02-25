@@ -40,6 +40,21 @@ npm install -D @cheng-pang/lookinmcp-cli
 ./node_modules/.bin/lookinmcp-cli --help
 ```
 
+### Sandbox / Network Note (Important)
+- 在受限网络或沙箱环境中，`npx` / `npm` 可能因无法访问 npm registry 失败（常见为 `ENOTFOUND registry.npmjs.org`）。
+- 这类场景下，优先申请提权后再执行 `npx` 命令。
+- 若希望减少在线依赖，优先单独安装 CLI（全局或项目内）：
+
+```bash
+# 全局安装
+npm install -g @cheng-pang/lookinmcp-cli
+lookinmcp-cli health
+
+# 或项目内安装
+npm install -D @cheng-pang/lookinmcp-cli
+./node_modules/.bin/lookinmcp-cli health
+```
+
 默认 MCP 地址为 `http://127.0.0.1:4010/mcp`。若端口不同，使用 `--url` 覆盖：
 
 ```bash
