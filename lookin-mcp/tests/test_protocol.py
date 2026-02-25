@@ -44,9 +44,12 @@ def test_MCP_002_tools_list(mcp_client: MCPTestClient) -> None:
     names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
     assert "lookin.health" in names
     assert "lookin.get_selected_view_context" in names
+    assert "lookin.get_hierarchy_by_node_id" in names
+    assert "lookin.get_view_context_by_node_id" in names
     assert "lookin.set_requirement_items" in names
     assert "lookin.get_requirement_code_info" in names
     assert "lookin.capture_selected_view_screenshot" in names
+    assert "lookin.capture_view_screenshot_by_node_id" in names
 
 
 def test_MCP_003_tools_call_health(mcp_client: MCPTestClient) -> None:

@@ -18,7 +18,8 @@ def test_S_001_mixed_calls_100_rounds(
     mcp_client: MCPTestClient,
     selected_context: dict,
 ) -> None:
-    _ = selected_context
+    selected_node_id = selected_context.get("selectedNode", {}).get("identity", {}).get("nodeId")
+    assert isinstance(selected_node_id, str) and selected_node_id
     rounds = int(os.getenv("LOOKIN_MCP_STABILITY_ROUNDS", "30"))
     failures = []
 
@@ -27,6 +28,8 @@ def test_S_001_mixed_calls_100_rounds(
         checks = [
             ("lookin.health", {}),
             ("lookin.get_selected_view_context", {"childrenDepth": 1}),
+            ("lookin.get_hierarchy_by_node_id", {"nodeId": selected_node_id, "depth": 1}),
+            ("lookin.get_view_context_by_node_id", {"nodeId": selected_node_id, "childrenDepth": 1}),
             (
                 "lookin.set_requirement_items",
                 {
@@ -36,6 +39,7 @@ def test_S_001_mixed_calls_100_rounds(
             ),
             ("lookin.get_requirement_code_info", {}),
             ("lookin.capture_selected_view_screenshot", {"format": "png"}),
+            ("lookin.capture_view_screenshot_by_node_id", {"nodeId": selected_node_id, "format": "png"}),
             (
                 "lookin.set_requirement_items",
                 {"operation": "remove", "items": [{"requirementId": rid}]},
@@ -64,6 +68,7 @@ def test_S_002_session_switch_recovery(
         for tool_name, args in [
             ("lookin.health", {}),
             ("lookin.get_selected_view_context", {"childrenDepth": 1}),
+            ("lookin.get_hierarchy_by_node_id", {"depth": 1}),
             ("lookin.get_requirement_code_info", {}),
             ("lookin.capture_selected_view_screenshot", {"format": "png"}),
         ]:

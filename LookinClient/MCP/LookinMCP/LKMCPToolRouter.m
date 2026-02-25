@@ -68,8 +68,64 @@
         return [self.contextService selectedViewContextWithArguments:safeArguments error:error];
     }
 
+    if ([toolName isEqualToString:@"lookin.get_hierarchy_by_node_id"]) {
+        NSString *sessionId = [self.contextService currentSessionId];
+        NSString *nodeId = nil;
+        id nodeIdObj = safeArguments[@"nodeId"];
+        if (nodeIdObj != nil) {
+            if (![nodeIdObj isKindOfClass:[NSString class]] || ((NSString *)nodeIdObj).length == 0) {
+                if (error) {
+                    *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                               message:@"nodeId must be non-empty string when provided."
+                                           recoverable:YES
+                                                  hint:@"Use nodeId as non-empty string or omit it."
+                                             sessionId:sessionId];
+                }
+                return nil;
+            }
+            nodeId = (NSString *)nodeIdObj;
+        }
+        return [self.contextService buildHierarchyPayloadByNodeId:nodeId arguments:safeArguments error:error];
+    }
+
+    if ([toolName isEqualToString:@"lookin.get_view_context_by_node_id"]) {
+        NSString *sessionId = [self.contextService currentSessionId];
+        id nodeIdObj = safeArguments[@"nodeId"];
+        if (![nodeIdObj isKindOfClass:[NSString class]] || ((NSString *)nodeIdObj).length == 0) {
+            if (error) {
+                *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                           message:@"nodeId is required and must be non-empty string."
+                                       recoverable:YES
+                                              hint:@"Use nodeId as non-empty string."
+                                         sessionId:sessionId];
+            }
+            return nil;
+        }
+        return [self.contextService buildViewContextPayloadByNodeId:(NSString *)nodeIdObj
+                                                           arguments:safeArguments
+                                                               error:error];
+    }
+
     if ([toolName isEqualToString:@"lookin.capture_selected_view_screenshot"]) {
         return [self.contextService captureSelectedViewScreenshotWithArguments:safeArguments error:error];
+    }
+
+    if ([toolName isEqualToString:@"lookin.capture_view_screenshot_by_node_id"]) {
+        NSString *sessionId = [self.contextService currentSessionId];
+        id nodeIdObj = safeArguments[@"nodeId"];
+        if (![nodeIdObj isKindOfClass:[NSString class]] || ((NSString *)nodeIdObj).length == 0) {
+            if (error) {
+                *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                           message:@"nodeId is required and must be non-empty string."
+                                       recoverable:YES
+                                              hint:@"Use nodeId as non-empty string."
+                                         sessionId:sessionId];
+            }
+            return nil;
+        }
+        return [self.contextService captureScreenshotByNodeId:(NSString *)nodeIdObj
+                                                     arguments:safeArguments
+                                                         error:error];
     }
 
     NSString *sessionId = [self.contextService currentSessionId];
@@ -124,6 +180,38 @@
         },
         @"additionalProperties": @NO
     };
+    NSDictionary<NSString *, id> *hierarchyByNodeInputSchema = @{
+        @"type": @"object",
+        @"properties": @{
+            @"nodeId": @{
+                @"type": @"string",
+                @"minLength": @1
+            },
+            @"depth": @{
+                @"type": @"integer",
+                @"minimum": @0,
+                @"maximum": @16,
+                @"default": @1
+            }
+        },
+        @"additionalProperties": @NO
+    };
+    NSDictionary<NSString *, id> *viewContextByNodeInputSchema = @{
+        @"type": @"object",
+        @"required": @[@"nodeId"],
+        @"properties": @{
+            @"nodeId": @{
+                @"type": @"string",
+                @"minLength": @1
+            },
+            @"childrenDepth": @{
+                @"type": @"integer",
+                @"minimum": @0,
+                @"default": @1
+            }
+        },
+        @"additionalProperties": @NO
+    };
 
     NSDictionary<NSString *, id> *setRequirementInputSchema = @{
         @"type": @"object",
@@ -156,13 +244,21 @@
             @"format": @{
                 @"type": @"string",
                 @"enum": @[@"png"]
+            }
+        },
+        @"additionalProperties": @NO
+    };
+    NSDictionary<NSString *, id> *captureScreenshotByNodeInputSchema = @{
+        @"type": @"object",
+        @"required": @[@"nodeId"],
+        @"properties": @{
+            @"nodeId": @{
+                @"type": @"string",
+                @"minLength": @1
             },
-            @"scale": @{
-                @"type": @"number",
-                @"exclusiveMinimum": @0
-            },
-            @"highlightSelectedRegion": @{
-                @"type": @"boolean"
+            @"format": @{
+                @"type": @"string",
+                @"enum": @[@"png"]
             }
         },
         @"additionalProperties": @NO
@@ -187,6 +283,32 @@
             @"title": @"Get Selected View Context",
             @"description": @"Return selected iOS view dashboard context from current Lookin session.",
             @"inputSchema": contextInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @YES,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @YES,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.get_hierarchy_by_node_id",
+            @"title": @"Get Hierarchy By Node ID",
+            @"description": @"Return hierarchy subtree from roots or specified nodeId.",
+            @"inputSchema": hierarchyByNodeInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @YES,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @YES,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.get_view_context_by_node_id",
+            @"title": @"Get View Context By Node ID",
+            @"description": @"Return iOS view dashboard context for target nodeId in current session.",
+            @"inputSchema": viewContextByNodeInputSchema,
             @"outputSchema": genericObjectOutputSchema,
             @"annotations": @{
                 @"readOnlyHint": @YES,
@@ -226,6 +348,19 @@
             @"title": @"Capture Selected View Screenshot",
             @"description": @"Capture screenshot for currently selected view and return local file metadata.",
             @"inputSchema": captureScreenshotInputSchema,
+            @"outputSchema": genericObjectOutputSchema,
+            @"annotations": @{
+                @"readOnlyHint": @NO,
+                @"destructiveHint": @NO,
+                @"idempotentHint": @NO,
+                @"openWorldHint": @NO
+            }
+        },
+        @{
+            @"name": @"lookin.capture_view_screenshot_by_node_id",
+            @"title": @"Capture View Screenshot By Node ID",
+            @"description": @"Capture screenshot for target nodeId and return local file metadata.",
+            @"inputSchema": captureScreenshotByNodeInputSchema,
             @"outputSchema": genericObjectOutputSchema,
             @"annotations": @{
                 @"readOnlyHint": @NO,

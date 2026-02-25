@@ -24,6 +24,25 @@ def _new_req_id(prefix: str) -> str:
     return f"{prefix}-{int(time.time() * 1000)}-{uuid4().hex[:6]}"
 
 
+def _selected_node_id(selected_context: dict[str, Any]) -> str:
+    identity = selected_context.get("selectedNode", {}).get("identity", {})
+    node_id = identity.get("nodeId")
+    assert isinstance(node_id, str) and node_id, "selectedNode.identity.nodeId should be non-empty string"
+    return node_id
+
+
+def _assert_hierarchy_node_contract(node: dict[str, Any]) -> None:
+    assert set(node.keys()) == {"nodeId", "className", "ivarNameOfParent", "hasChildren", "children"}
+    assert isinstance(node["nodeId"], str)
+    assert isinstance(node["className"], str)
+    assert isinstance(node["ivarNameOfParent"], str)
+    assert isinstance(node["hasChildren"], bool)
+    assert isinstance(node["children"], list)
+    for child in node["children"]:
+        assert isinstance(child, dict)
+        _assert_hierarchy_node_contract(child)
+
+
 @pytest.mark.functional
 def test_F_001_health(mcp_client: MCPTestClient) -> None:
     result = mcp_client.invoke("lookin.health")
@@ -237,3 +256,97 @@ def test_F_008_code_info_visible_within_1s(
         )
 
     assert found, "new requirement item was not visible within 1s"
+
+
+@pytest.mark.functional
+def test_F_009_get_hierarchy_by_node_id_roots_default(
+    mcp_client: MCPTestClient,
+    active_session: dict,
+) -> None:
+    _ = active_session
+    result = mcp_client.invoke("lookin.get_hierarchy_by_node_id", {"depth": 1})
+    assert result.ok, f"get_hierarchy_by_node_id failed: {result.error or result.raw}"
+
+    hierarchy = result.content.get("hierarchy", {})
+    assert hierarchy.get("startFrom") == "roots"
+    assert hierarchy.get("depth") == 1
+    nodes = hierarchy.get("nodes")
+    assert isinstance(nodes, list)
+    for node in nodes:
+        assert isinstance(node, dict)
+        _assert_hierarchy_node_contract(node)
+
+
+@pytest.mark.functional
+def test_F_010_get_hierarchy_by_node_id_depth_behavior(
+    mcp_client: MCPTestClient,
+    selected_context: dict,
+) -> None:
+    node_id = _selected_node_id(selected_context)
+    d0 = mcp_client.invoke("lookin.get_hierarchy_by_node_id", {"nodeId": node_id, "depth": 0})
+    d1 = mcp_client.invoke("lookin.get_hierarchy_by_node_id", {"nodeId": node_id, "depth": 1})
+    assert d0.ok, f"depth=0 failed: {d0.error or d0.raw}"
+    assert d1.ok, f"depth=1 failed: {d1.error or d1.raw}"
+
+    h0 = d0.content["hierarchy"]
+    h1 = d1.content["hierarchy"]
+    assert h0["startFrom"] == "node"
+    assert h1["startFrom"] == "node"
+    assert h0["startNodeId"] == node_id
+    assert h1["startNodeId"] == node_id
+    assert h0["depth"] == 0
+    assert h1["depth"] == 1
+
+    node0 = h0["nodes"][0]
+    node1 = h1["nodes"][0]
+    _assert_hierarchy_node_contract(node0)
+    _assert_hierarchy_node_contract(node1)
+    assert node0["children"] == []
+    assert len(node1["children"]) >= len(node0["children"])
+    if len(node1["children"]) > 0:
+        assert node0["hasChildren"] is True
+
+
+@pytest.mark.functional
+def test_F_011_get_view_context_by_node_id_matches_selected_node(
+    mcp_client: MCPTestClient,
+    selected_context: dict,
+) -> None:
+    node_id = _selected_node_id(selected_context)
+    result = mcp_client.invoke(
+        "lookin.get_view_context_by_node_id",
+        {"nodeId": node_id, "childrenDepth": 1},
+    )
+    assert result.ok, f"get_view_context_by_node_id failed: {result.error or result.raw}"
+    assert "targetNode" in result.content
+    assert result.content["targetNode"] == selected_context["selectedNode"]
+
+
+@pytest.mark.functional
+def test_F_012_capture_view_screenshot_by_node_id_matches_contract(
+    mcp_client: MCPTestClient,
+    selected_context: dict,
+    png_size,
+) -> None:
+    node_id = _selected_node_id(selected_context)
+
+    selected_result = mcp_client.invoke("lookin.capture_selected_view_screenshot", {"format": "png"})
+    by_node_result = mcp_client.invoke(
+        "lookin.capture_view_screenshot_by_node_id",
+        {"nodeId": node_id, "format": "png"},
+    )
+    assert selected_result.ok, f"capture_selected_view_screenshot failed: {selected_result.error or selected_result.raw}"
+    assert by_node_result.ok, f"capture_view_screenshot_by_node_id failed: {by_node_result.error or by_node_result.raw}"
+
+    selected_payload = selected_result.content
+    by_node_payload = by_node_result.content
+    assert set(selected_payload.keys()) == set(by_node_payload.keys())
+    assert by_node_payload["nodeId"] == node_id
+    assert selected_payload["sessionId"] == by_node_payload["sessionId"]
+    assert selected_payload["format"] == by_node_payload["format"] == "png"
+
+    path = Path(by_node_payload["path"])
+    assert path.exists(), f"screenshot file not found: {path}"
+    width, height = png_size(path)
+    assert width > 0 and height > 0
+    assert by_node_payload["width"] > 0 and by_node_payload["height"] > 0

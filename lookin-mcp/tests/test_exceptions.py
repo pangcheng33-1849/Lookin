@@ -27,8 +27,11 @@ def test_E_001_no_session(
 
     for tool_name, arguments in [
         ("lookin.get_selected_view_context", {"childrenDepth": 1}),
+        ("lookin.get_hierarchy_by_node_id", {"depth": 1}),
+        ("lookin.get_view_context_by_node_id", {"nodeId": "1", "childrenDepth": 1}),
         ("lookin.get_requirement_code_info", {}),
         ("lookin.capture_selected_view_screenshot", {"format": "png"}),
+        ("lookin.capture_view_screenshot_by_node_id", {"nodeId": "1", "format": "png"}),
     ]:
         result = mcp_client.invoke(tool_name, arguments)
         assert not result.ok, f"{tool_name} should fail in no-session scenario"
@@ -94,12 +97,20 @@ def test_E_004_remove_nonexistent_requirement(
     ("tool_name", "arguments"),
     [
         ("lookin.get_selected_view_context", {"childrenDepth": -1}),
+        ("lookin.get_hierarchy_by_node_id", {"depth": -1}),
+        ("lookin.get_hierarchy_by_node_id", {"depth": 999}),
+        ("lookin.get_hierarchy_by_node_id", {"nodeId": ""}),
+        ("lookin.get_hierarchy_by_node_id", {"nodeId": "abc"}),
+        ("lookin.get_view_context_by_node_id", {"nodeId": "", "childrenDepth": 1}),
+        ("lookin.get_view_context_by_node_id", {"nodeId": "123", "childrenDepth": -1}),
         ("lookin.set_requirement_items", {"operation": "upsert", "items": [{"requirementId": "X"}]}),
         ("lookin.set_requirement_items", {"operation": "append", "items": [{"requirementId": "X"}]}),
         ("lookin.set_requirement_items", {"operation": "remove", "items": [{}]}),
         ("lookin.capture_selected_view_screenshot", {"format": "jpg"}),
-        ("lookin.capture_selected_view_screenshot", {"format": "png", "scale": 0}),
-        ("lookin.capture_selected_view_screenshot", {"format": "png", "highlightSelectedRegion": "yes"}),
+        ("lookin.capture_selected_view_screenshot", {"format": "png", "unknownOption": "yes"}),
+        ("lookin.capture_view_screenshot_by_node_id", {"nodeId": "", "format": "png"}),
+        ("lookin.capture_view_screenshot_by_node_id", {"nodeId": "123", "format": "jpg"}),
+        ("lookin.capture_view_screenshot_by_node_id", {"nodeId": "123", "unknownOption": "yes"}),
     ],
 )
 def test_E_005_bad_argument(
@@ -125,3 +136,24 @@ def test_E_006_screenshot_write_failed(
     result = mcp_client.invoke("lookin.capture_selected_view_screenshot", {"format": "png"})
     assert not result.ok
     assert extract_error_code(result) == "LOOKIN_MCP_SCREENSHOT_FAILED"
+
+
+@pytest.mark.exception
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    [
+        ("lookin.get_hierarchy_by_node_id", {"nodeId": "999999999999", "depth": 1}),
+        ("lookin.get_view_context_by_node_id", {"nodeId": "999999999999", "childrenDepth": 1}),
+        ("lookin.capture_view_screenshot_by_node_id", {"nodeId": "999999999999", "format": "png"}),
+    ],
+)
+def test_E_007_node_not_found(
+    mcp_client: MCPTestClient,
+    active_session: dict,
+    tool_name: str,
+    arguments: dict,
+) -> None:
+    _ = active_session
+    result = mcp_client.invoke(tool_name, arguments)
+    assert not result.ok
+    assert extract_error_code(result) == "LOOKIN_MCP_NODE_NOT_FOUND"

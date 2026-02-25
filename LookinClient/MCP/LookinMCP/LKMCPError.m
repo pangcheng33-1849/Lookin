@@ -14,6 +14,7 @@ NSString * const LKMCPErrorCodeNoSelection = @"LOOKIN_MCP_NO_SELECTION";
 NSString * const LKMCPErrorCodeDuplicateRequirementID = @"LOOKIN_MCP_DUP_REQUIREMENT_ID";
 NSString * const LKMCPErrorCodeRequirementNotFound = @"LOOKIN_MCP_REQUIREMENT_NOT_FOUND";
 NSString * const LKMCPErrorCodeBadArgument = @"LOOKIN_MCP_BAD_ARGUMENT";
+NSString * const LKMCPErrorCodeNodeNotFound = @"LOOKIN_MCP_NODE_NOT_FOUND";
 NSString * const LKMCPErrorCodeScreenshotFailed = @"LOOKIN_MCP_SCREENSHOT_FAILED";
 
 NSString * const LKMCPErrorUserInfoCodeKey = @"mcpCode";

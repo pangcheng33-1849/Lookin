@@ -24,11 +24,35 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSDictionary<NSString *, id> *)selectedViewContextWithArguments:(NSDictionary<NSString *, id> *)arguments
                                                                        error:(NSError **)error;
 
+/// 构造 `lookin.get_hierarchy_by_node_id` 返回内容。
+/// @param nodeId 可选，未传时从 roots 开始。
+/// @param arguments Tool 参数（当前支持 `depth`）。
+/// @param error 失败时返回错误信息。
+- (nullable NSDictionary<NSString *, id> *)buildHierarchyPayloadByNodeId:(nullable NSString *)nodeId
+                                                                arguments:(NSDictionary<NSString *, id> *)arguments
+                                                                    error:(NSError **)error;
+
+/// 构造 `lookin.get_view_context_by_node_id` 返回内容。
+/// @param nodeId 目标节点 ID。
+/// @param arguments Tool 参数（当前支持 `childrenDepth`）。
+/// @param error 失败时返回错误信息。
+- (nullable NSDictionary<NSString *, id> *)buildViewContextPayloadByNodeId:(NSString *)nodeId
+                                                                  arguments:(NSDictionary<NSString *, id> *)arguments
+                                                                      error:(NSError **)error;
+
 /// 导出当前选中视图截图并返回路径与元数据。
-/// @param arguments Tool 参数（格式、scale、高亮开关）。
+/// @param arguments Tool 参数（当前支持 `format`）。
 /// @param error 失败时返回错误信息。
 - (nullable NSDictionary<NSString *, id> *)captureSelectedViewScreenshotWithArguments:(NSDictionary<NSString *, id> *)arguments
                                                                                  error:(NSError **)error;
+
+/// 导出指定节点截图并返回路径与元数据。
+/// @param nodeId 目标节点 ID。
+/// @param arguments Tool 参数（当前支持 `format`）。
+/// @param error 失败时返回错误信息。
+- (nullable NSDictionary<NSString *, id> *)captureScreenshotByNodeId:(NSString *)nodeId
+                                                            arguments:(NSDictionary<NSString *, id> *)arguments
+                                                                error:(NSError **)error;
 
 @end
 

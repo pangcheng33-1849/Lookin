@@ -19,11 +19,17 @@
 #import "LookinDashboardBlueprint.h"
 #import "LookinAutoLayoutConstraint.h"
 #import "LookinAutoLayoutConstraint+LookinClient.h"
+#import "LookinDisplayItem+LookinClient.h"
+#import "LookinHierarchyInfo.h"
+#import <limits.h>
+#import <math.h>
+#import <stdlib.h>
 #if DEBUG
 #import "LKMCPContextService+Testing.h"
 #endif
 @import AppKit;
 #define LKMCPContextLog(fmt, ...) NSLog((@"[LookinMCP][Context] " fmt), ##__VA_ARGS__)
+static const NSInteger LKMCPHierarchyDepthMax = 16;
 
 static BOOL LKMCPScenarioFlagEnabled(NSString *flagName) {
 #if DEBUG
@@ -54,10 +60,6 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
     return NO;
 #endif
 }
-
-@interface LKMCPContextService ()
-
-@end
 
 @implementation LKMCPContextService
 
@@ -100,100 +102,226 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
 
 - (NSDictionary<NSString *,id> *)selectedViewContextWithArguments:(NSDictionary<NSString *,id> *)arguments
                                                              error:(NSError *__autoreleasing  _Nullable *)error {
-    NSString *sessionId = [self currentSessionId];
+    NSString *sessionId = [self _validatedSessionIdWithError:error];
     if (sessionId.length == 0) {
+        return nil;
+    }
+    NSInteger childrenDepth = 1;
+    if (![self _readNonNegativeIntegerArgument:@"childrenDepth"
+                                      arguments:arguments
+                                   defaultValue:1
+                                       required:NO
+                                      sessionId:sessionId
+                                       outValue:&childrenDepth
+                                          error:error]) {
+        return nil;
+    }
+
+    LookinDisplayItem *selectedItem = [self _selectedItemWithSessionId:sessionId error:error];
+    if (!selectedItem) {
+        return nil;
+    }
+    if (![self _ensureItemSupportsDashboardContext:selectedItem sessionId:sessionId error:error]) {
+        return nil;
+    }
+
+    NSDictionary<NSString *, id> *response = @{
+        @"session": [self _sessionPayloadForSessionId:sessionId],
+        @"selectedNode": [self _buildContextPayloadForItem:selectedItem childrenDepth:childrenDepth]
+    };
+    LKMCPContextLog(@"selected view context generated, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, [self _nodeIdForDisplayItem:selectedItem], @(childrenDepth));
+    return response;
+}
+
+- (NSDictionary<NSString *,id> *)buildHierarchyPayloadByNodeId:(NSString *)nodeId
+                                                      arguments:(NSDictionary<NSString *,id> *)arguments
+                                                          error:(NSError *__autoreleasing  _Nullable *)error {
+    NSString *sessionId = [self _validatedSessionIdWithError:error];
+    if (sessionId.length == 0) {
+        return nil;
+    }
+    if (![self _validateAllowedArgumentKeys:[NSSet setWithArray:@[@"nodeId", @"depth"]]
+                                  arguments:arguments
+                                  sessionId:sessionId
+                                      error:error]) {
+        return nil;
+    }
+
+    NSInteger depth = 1;
+    if (![self _readNonNegativeIntegerArgument:@"depth"
+                                      arguments:arguments
+                                   defaultValue:1
+                                       required:NO
+                                      sessionId:sessionId
+                                       outValue:&depth
+                                          error:error]) {
+        return nil;
+    }
+    if (depth > LKMCPHierarchyDepthMax) {
         if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSession
-                                       message:@"No active inspectable app session."
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:[NSString stringWithFormat:@"depth must be <= %ld.", (long)LKMCPHierarchyDepthMax]
                                    recoverable:YES
-                                          hint:@"Connect an app in Lookin, then retry."
-                                     sessionId:nil];
+                                          hint:[NSString stringWithFormat:@"Use depth in range [0, %ld].", (long)LKMCPHierarchyDepthMax]
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
+
+    NSString *trimmedNodeId = [self _trimmedString:nodeId];
+    BOOL startsFromNode = trimmedNodeId.length > 0;
+    NSArray<LookinDisplayItem *> *startItems = @[];
+    if (startsFromNode) {
+        LookinDisplayItem *item = [self _displayItemForNodeId:trimmedNodeId sessionId:sessionId error:error];
+        if (!item) {
+            return nil;
+        }
+        startItems = @[item];
+    } else {
+        NSArray<LookinDisplayItem *> *roots = [LKStaticHierarchyDataSource sharedInstance].rawHierarchyInfo.displayItems;
+        if ([roots isKindOfClass:[NSArray class]]) {
+            startItems = roots;
+        }
+    }
+
+    NSMutableArray<NSDictionary<NSString *, id> *> *serializedNodes = [NSMutableArray array];
+    for (id itemObj in startItems) {
+        if (![itemObj isKindOfClass:[LookinDisplayItem class]]) {
+            continue;
+        }
+        [serializedNodes addObject:[self _buildHierarchyNodePayloadForItem:(LookinDisplayItem *)itemObj remainingDepth:depth]];
+    }
+
+    NSMutableDictionary<NSString *, id> *hierarchy = [@{
+        @"startFrom": startsFromNode ? @"node" : @"roots",
+        @"depth": @(depth),
+        @"nodes": serializedNodes
+    } mutableCopy];
+    if (startsFromNode) {
+        hierarchy[@"startNodeId"] = trimmedNodeId;
+    }
+
+    NSDictionary<NSString *, id> *response = @{
+        @"session": [self _sessionPayloadForSessionId:sessionId],
+        @"hierarchy": hierarchy
+    };
+    LKMCPContextLog(@"hierarchy payload generated, sessionId=%@, startFrom=%@, depth=%@, rootCount=%@", sessionId, hierarchy[@"startFrom"], @(depth), @(serializedNodes.count));
+    return response;
+}
+
+- (NSDictionary<NSString *,id> *)buildViewContextPayloadByNodeId:(NSString *)nodeId
+                                                        arguments:(NSDictionary<NSString *,id> *)arguments
+                                                            error:(NSError *__autoreleasing  _Nullable *)error {
+    NSString *sessionId = [self _validatedSessionIdWithError:error];
+    if (sessionId.length == 0) {
+        return nil;
+    }
+    if (![self _validateAllowedArgumentKeys:[NSSet setWithArray:@[@"nodeId", @"childrenDepth"]]
+                                  arguments:arguments
+                                  sessionId:sessionId
+                                      error:error]) {
+        return nil;
+    }
+
+    NSString *trimmedNodeId = [self _trimmedString:nodeId];
+    if (trimmedNodeId.length == 0) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"nodeId is required."
+                                   recoverable:YES
+                                          hint:@"Use nodeId as non-empty string."
+                                     sessionId:sessionId];
         }
         return nil;
     }
 
     NSInteger childrenDepth = 1;
-    id depthObj = arguments[@"childrenDepth"];
-    if (depthObj != nil) {
-        if (![depthObj isKindOfClass:[NSNumber class]]) {
-            if (error) {
-                *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                           message:@"childrenDepth must be integer."
-                                       recoverable:YES
-                                              hint:@"Use childrenDepth >= 0."
-                                         sessionId:sessionId];
-            }
-            return nil;
-        }
-        childrenDepth = [depthObj integerValue];
-        if (childrenDepth < 0) {
-            if (error) {
-                *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                           message:@"childrenDepth must be >= 0."
-                                       recoverable:YES
-                                              hint:@"Use childrenDepth >= 0."
-                                         sessionId:sessionId];
-            }
-            return nil;
-        }
-    }
-
-    LookinDisplayItem *selectedItem = [LKStaticHierarchyDataSource sharedInstance].selectedItem;
-    if (!selectedItem) {
-        if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
-                                       message:@"No selected view in current session."
-                                   recoverable:YES
-                                          hint:@"Please select a view in Lookin and retry."
-                                     sessionId:sessionId];
-        }
-        return nil;
-    }
-    if (selectedItem.customInfo || [selectedItem queryAllAttrGroupList].count == 0) {
-        if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                       message:@"Selected node does not support full dashboard context."
-                                   recoverable:YES
-                                          hint:@"Select a regular UIKit view node and retry."
-                                     sessionId:sessionId];
-        }
-        LKMCPContextLog(@"selected node rejected, nodeId=%@, reason=unsupported-dashboard-context", [self _nodeIdForDisplayItem:selectedItem]);
-        return nil;
-    }
-    if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SELECTION"]) {
-        if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
-                                       message:@"No selected view in current session."
-                                   recoverable:YES
-                                          hint:@"Please select a view in Lookin and retry."
-                                     sessionId:sessionId];
-        }
+    if (![self _readNonNegativeIntegerArgument:@"childrenDepth"
+                                      arguments:arguments
+                                   defaultValue:1
+                                       required:NO
+                                      sessionId:sessionId
+                                       outValue:&childrenDepth
+                                          error:error]) {
         return nil;
     }
 
-    LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
-    NSMutableDictionary<NSString *, id> *response = [NSMutableDictionary dictionary];
-    response[@"session"] = @{
-        @"sessionId": sessionId,
-        @"appName": app.appInfo.appName ?: @"",
-        @"appBundleIdentifier": app.appInfo.appBundleIdentifier ?: @"",
-        @"timestamp": [LKMCPError currentTimestampMs]
+    LookinDisplayItem *item = [self _displayItemForNodeId:trimmedNodeId sessionId:sessionId error:error];
+    if (!item) {
+        return nil;
+    }
+    if (![self _ensureItemSupportsDashboardContext:item sessionId:sessionId error:error]) {
+        return nil;
+    }
+
+    NSDictionary<NSString *, id> *response = @{
+        @"session": [self _sessionPayloadForSessionId:sessionId],
+        @"targetNode": [self _buildContextPayloadForItem:item childrenDepth:childrenDepth]
     };
-    response[@"selectedNode"] = [self _buildSelectedNode:selectedItem childrenDepth:childrenDepth];
-    LKMCPContextLog(@"selected view context generated, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, [self _nodeIdForDisplayItem:selectedItem], @(childrenDepth));
+    LKMCPContextLog(@"context payload generated by nodeId, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, trimmedNodeId, @(childrenDepth));
     return response;
 }
 
 - (NSDictionary<NSString *,id> *)captureSelectedViewScreenshotWithArguments:(NSDictionary<NSString *,id> *)arguments
                                                                        error:(NSError *__autoreleasing  _Nullable *)error {
-    NSString *sessionId = [self currentSessionId];
+    NSString *sessionId = [self _validatedSessionIdWithError:error];
     if (sessionId.length == 0) {
+        return nil;
+    }
+    if (![self _validateAllowedArgumentKeys:[NSSet setWithArray:@[@"format"]]
+                                  arguments:arguments
+                                  sessionId:sessionId
+                                      error:error]) {
+        return nil;
+    }
+
+    NSString *format = [arguments[@"format"] isKindOfClass:[NSString class]] ? arguments[@"format"] : @"png";
+    if (![format isEqualToString:@"png"]) {
         if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSession
-                                       message:@"No active inspectable app session."
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"Only png format is supported."
                                    recoverable:YES
-                                          hint:@"Connect an app in Lookin, then retry."
-                                     sessionId:nil];
+                                          hint:@"Use format=png."
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
+    LookinDisplayItem *selectedItem = [self _selectedItemWithSessionId:sessionId error:error];
+    if (!selectedItem) {
+        return nil;
+    }
+    NSDictionary<NSString *, id> *result = [self _captureScreenshotPayloadForItem:selectedItem
+                                                                            format:format
+                                                                         sessionId:sessionId
+                                                                             error:error];
+    if (result) {
+        LKMCPContextLog(@"selected screenshot captured, sessionId=%@, nodeId=%@", sessionId, result[@"nodeId"] ?: @"");
+    }
+    return result;
+}
+
+- (NSDictionary<NSString *,id> *)captureScreenshotByNodeId:(NSString *)nodeId
+                                                  arguments:(NSDictionary<NSString *,id> *)arguments
+                                                      error:(NSError *__autoreleasing  _Nullable *)error {
+    NSString *sessionId = [self _validatedSessionIdWithError:error];
+    if (sessionId.length == 0) {
+        return nil;
+    }
+    if (![self _validateAllowedArgumentKeys:[NSSet setWithArray:@[@"nodeId", @"format"]]
+                                  arguments:arguments
+                                  sessionId:sessionId
+                                      error:error]) {
+        return nil;
+    }
+
+    NSString *trimmedNodeId = [self _trimmedString:nodeId];
+    if (trimmedNodeId.length == 0) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"nodeId is required."
+                                   recoverable:YES
+                                          hint:@"Use nodeId as non-empty string."
+                                     sessionId:sessionId];
         }
         return nil;
     }
@@ -209,40 +337,142 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         }
         return nil;
     }
-    if (arguments[@"highlightSelectedRegion"] && ![arguments[@"highlightSelectedRegion"] isKindOfClass:[NSNumber class]]) {
-        if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                       message:@"highlightSelectedRegion must be boolean."
-                                   recoverable:YES
-                                          hint:@"Use true/false for highlightSelectedRegion."
-                                     sessionId:sessionId];
-        }
+
+    LookinDisplayItem *item = [self _displayItemForNodeId:trimmedNodeId sessionId:sessionId error:error];
+    if (!item) {
         return nil;
     }
-    if (arguments[@"scale"]) {
-        if (![arguments[@"scale"] isKindOfClass:[NSNumber class]] || [arguments[@"scale"] doubleValue] <= 0) {
+    NSDictionary<NSString *, id> *result = [self _captureScreenshotPayloadForItem:item
+                                                                            format:format
+                                                                         sessionId:sessionId
+                                                                             error:error];
+    if (result) {
+        LKMCPContextLog(@"screenshot captured by nodeId, sessionId=%@, nodeId=%@", sessionId, trimmedNodeId);
+    }
+    return result;
+}
+
+- (NSString *)_validatedSessionIdWithError:(NSError *__autoreleasing _Nullable *)error {
+    NSString *sessionId = [self currentSessionId];
+    if (sessionId.length > 0) {
+        return sessionId;
+    }
+    if (error) {
+        *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSession
+                                   message:@"No active inspectable app session."
+                               recoverable:YES
+                                      hint:@"Connect an app in Lookin, then retry."
+                                 sessionId:nil];
+    }
+    return nil;
+}
+
+- (NSDictionary<NSString *, id> *)_sessionPayloadForSessionId:(NSString *)sessionId {
+    LKInspectableApp *app = [LKAppsManager sharedInstance].inspectingApp;
+    return @{
+        @"sessionId": sessionId ?: @"",
+        @"appName": app.appInfo.appName ?: @"",
+        @"appBundleIdentifier": app.appInfo.appBundleIdentifier ?: @"",
+        @"timestamp": [LKMCPError currentTimestampMs]
+    };
+}
+
+- (NSString *)_trimmedString:(NSString *)string {
+    if (![string isKindOfClass:[NSString class]]) {
+        return @"";
+    }
+    return [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+- (BOOL)_validateAllowedArgumentKeys:(NSSet<NSString *> *)allowedKeys
+                           arguments:(NSDictionary<NSString *, id> *)arguments
+                           sessionId:(NSString *)sessionId
+                               error:(NSError *__autoreleasing _Nullable *)error {
+    __block NSString *invalidKey = nil;
+    [arguments enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+        if (![key isKindOfClass:[NSString class]] || ![allowedKeys containsObject:key]) {
+            invalidKey = [key isKindOfClass:[NSString class]] ? key : @"<non-string-key>";
+            *stop = YES;
+        }
+        (void)obj;
+    }];
+    if (invalidKey.length == 0) {
+        return YES;
+    }
+    if (error) {
+        *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                   message:[NSString stringWithFormat:@"Unknown argument: %@.", invalidKey]
+                               recoverable:YES
+                                      hint:[NSString stringWithFormat:@"Allowed keys: %@.", [[allowedKeys allObjects] componentsJoinedByString:@", "]]
+                                 sessionId:sessionId];
+    }
+    return NO;
+}
+
+- (BOOL)_readNonNegativeIntegerArgument:(NSString *)key
+                              arguments:(NSDictionary<NSString *, id> *)arguments
+                           defaultValue:(NSInteger)defaultValue
+                               required:(BOOL)required
+                              sessionId:(NSString *)sessionId
+                               outValue:(NSInteger *)outValue
+                                  error:(NSError *__autoreleasing _Nullable *)error {
+    id rawValue = arguments[key];
+    if (rawValue == nil) {
+        if (required) {
             if (error) {
                 *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
-                                           message:@"scale must be a positive number."
+                                           message:[NSString stringWithFormat:@"%@ is required.", key]
                                        recoverable:YES
-                                              hint:@"Use scale > 0."
+                                              hint:[NSString stringWithFormat:@"Use %@ as integer >= 0.", key]
                                          sessionId:sessionId];
             }
-            return nil;
+            return NO;
         }
+        if (outValue) {
+            *outValue = defaultValue;
+        }
+        return YES;
     }
-
-    LookinDisplayItem *selectedItem = [LKStaticHierarchyDataSource sharedInstance].selectedItem;
-    if (!selectedItem) {
+    if (![rawValue isKindOfClass:[NSNumber class]]) {
         if (error) {
-            *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
-                                       message:@"No selected view in current session."
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:[NSString stringWithFormat:@"%@ must be integer.", key]
                                    recoverable:YES
-                                          hint:@"Please select a view in Lookin and retry."
+                                          hint:[NSString stringWithFormat:@"Use %@ as integer >= 0.", key]
                                      sessionId:sessionId];
         }
-        return nil;
+        return NO;
     }
+    double doubleValue = [rawValue doubleValue];
+    if (floor(doubleValue) != doubleValue) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:[NSString stringWithFormat:@"%@ must be integer.", key]
+                                   recoverable:YES
+                                          hint:[NSString stringWithFormat:@"Use %@ as integer >= 0.", key]
+                                     sessionId:sessionId];
+        }
+        return NO;
+    }
+    NSInteger value = [rawValue integerValue];
+    if (value < 0) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:[NSString stringWithFormat:@"%@ must be >= 0.", key]
+                                   recoverable:YES
+                                          hint:[NSString stringWithFormat:@"Use %@ as integer >= 0.", key]
+                                     sessionId:sessionId];
+        }
+        return NO;
+    }
+    if (outValue) {
+        *outValue = value;
+    }
+    return YES;
+}
+
+- (LookinDisplayItem *)_selectedItemWithSessionId:(NSString *)sessionId
+                                             error:(NSError *__autoreleasing _Nullable *)error {
     if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_NO_SELECTION"]) {
         if (error) {
             *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
@@ -253,6 +483,129 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         }
         return nil;
     }
+    LookinDisplayItem *selectedItem = [LKStaticHierarchyDataSource sharedInstance].selectedItem;
+    if (selectedItem) {
+        return selectedItem;
+    }
+    if (error) {
+        *error = [LKMCPError errorWithCode:LKMCPErrorCodeNoSelection
+                                   message:@"No selected view in current session."
+                               recoverable:YES
+                                      hint:@"Please select a view in Lookin and retry."
+                                 sessionId:sessionId];
+    }
+    return nil;
+}
+
+- (BOOL)_ensureItemSupportsDashboardContext:(LookinDisplayItem *)item
+                                  sessionId:(NSString *)sessionId
+                                      error:(NSError *__autoreleasing _Nullable *)error {
+    if (!item.customInfo && [item queryAllAttrGroupList].count > 0) {
+        return YES;
+    }
+    if (error) {
+        *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                   message:@"Target node does not support full dashboard context."
+                               recoverable:YES
+                                      hint:@"Select a regular UIKit view node and retry."
+                                 sessionId:sessionId];
+    }
+    LKMCPContextLog(@"node rejected for context, nodeId=%@, reason=unsupported-dashboard-context", [self _nodeIdForDisplayItem:item]);
+    return NO;
+}
+
+- (LookinDisplayItem *)_displayItemForNodeId:(NSString *)nodeId
+                                    sessionId:(NSString *)sessionId
+                                        error:(NSError *__autoreleasing _Nullable *)error {
+    NSString *trimmedNodeId = [self _trimmedString:nodeId];
+    if (trimmedNodeId.length == 0) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"nodeId is required."
+                                   recoverable:YES
+                                          hint:@"Use nodeId as non-empty string."
+                                     sessionId:sessionId];
+        }
+        return nil;
+    }
+    unsigned long oid = 0;
+    if (![self _parseDisplayOidFromNodeId:trimmedNodeId oid:&oid sessionId:sessionId error:error]) {
+        return nil;
+    }
+    LookinDisplayItem *item = [[LKStaticHierarchyDataSource sharedInstance] displayItemWithOid:oid];
+    if (item) {
+        return item;
+    }
+    if (error) {
+        *error = [LKMCPError errorWithCode:LKMCPErrorCodeNodeNotFound
+                                   message:[NSString stringWithFormat:@"Node not found for nodeId=%@.", trimmedNodeId]
+                               recoverable:YES
+                                      hint:@"Refresh hierarchy and use nodeId returned by context/hierarchy tool."
+                                 sessionId:sessionId];
+    }
+    return nil;
+}
+
+- (BOOL)_parseDisplayOidFromNodeId:(NSString *)nodeId
+                               oid:(unsigned long *)oid
+                         sessionId:(NSString *)sessionId
+                             error:(NSError *__autoreleasing _Nullable *)error {
+    NSCharacterSet *nonDigits = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
+    if ([nodeId rangeOfCharacterFromSet:nonDigits].location != NSNotFound) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"nodeId must be an unsigned integer string."
+                                   recoverable:YES
+                                          hint:@"Use nodeId returned by Lookin MCP tools."
+                                     sessionId:sessionId];
+        }
+        return NO;
+    }
+    unsigned long long parsed = strtoull(nodeId.UTF8String, NULL, 10);
+    if (parsed > ULONG_MAX) {
+        if (error) {
+            *error = [LKMCPError errorWithCode:LKMCPErrorCodeBadArgument
+                                       message:@"nodeId value is out of range."
+                                   recoverable:YES
+                                          hint:@"Use nodeId returned by Lookin MCP tools."
+                                     sessionId:sessionId];
+        }
+        return NO;
+    }
+    if (oid) {
+        *oid = (unsigned long)parsed;
+    }
+    return YES;
+}
+
+- (NSDictionary<NSString *, id> *)_buildHierarchyNodePayloadForItem:(LookinDisplayItem *)item
+                                                      remainingDepth:(NSInteger)remainingDepth {
+    NSMutableArray<NSDictionary<NSString *, id> *> *children = [NSMutableArray array];
+    BOOL hasChildren = NO;
+    for (id childObj in item.subitems) {
+        if (![childObj isKindOfClass:[LookinDisplayItem class]]) {
+            continue;
+        }
+        hasChildren = YES;
+        if (remainingDepth > 0) {
+            [children addObject:[self _buildHierarchyNodePayloadForItem:(LookinDisplayItem *)childObj
+                                                           remainingDepth:remainingDepth - 1]];
+        }
+    }
+    return @{
+        @"nodeId": [self _nodeIdForDisplayItem:item],
+        @"className": [item title] ?: @"",
+        @"ivarNameOfParent": [item subtitle] ?: @"",
+        @"hasChildren": @(hasChildren),
+        @"children": children
+    };
+}
+
+- (NSDictionary<NSString *, id> *)_captureScreenshotPayloadForItem:(LookinDisplayItem *)item
+                                                             format:(NSString *)format
+                                                          sessionId:(NSString *)sessionId
+                                                              error:(NSError *__autoreleasing _Nullable *)error {
+    (void)format;
     if ([self _isScenarioEnabled:@"LOOKIN_MCP_SCENARIO_SCREENSHOT_FAIL"]) {
         if (error) {
             *error = [LKMCPError errorWithCode:LKMCPErrorCodeScreenshotFailed
@@ -264,11 +617,11 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         return nil;
     }
 
-    NSImage *image = selectedItem.groupScreenshot;
+    NSImage *image = item.groupScreenshot;
     if (!image) {
         if (error) {
             *error = [LKMCPError errorWithCode:LKMCPErrorCodeScreenshotFailed
-                                       message:@"Selected node has no screenshot."
+                                       message:@"Target node has no screenshot."
                                    recoverable:YES
                                           hint:@"Refresh hierarchy and retry."
                                      sessionId:sessionId];
@@ -305,7 +658,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         return nil;
     }
 
-    NSString *nodeId = [self _nodeIdForDisplayItem:selectedItem];
+    NSString *nodeId = [self _nodeIdForDisplayItem:item];
     NSNumber *timestamp = [LKMCPError currentTimestampMs];
     NSString *filePath = [cacheRoot stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_%@.png", nodeId, timestamp]];
     NSError *writeError = nil;
@@ -322,7 +675,6 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         return nil;
     }
 
-    LKMCPContextLog(@"screenshot captured, sessionId=%@, nodeId=%@, path=%@", sessionId, nodeId, filePath);
     return @{
         @"sessionId": sessionId,
         @"nodeId": nodeId,
@@ -358,7 +710,8 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
     return LKMCPScenarioFlagEnabled(flagName);
 }
 
-- (NSDictionary<NSString *, id> *)_buildSelectedNode:(LookinDisplayItem *)item childrenDepth:(NSInteger)childrenDepth {
+- (NSDictionary<NSString *, id> *)_buildContextPayloadForItem:(LookinDisplayItem *)item
+                                                 childrenDepth:(NSInteger)childrenDepth {
     NSMutableDictionary<NSString *, id> *node = [NSMutableDictionary dictionary];
     node[@"identity"] = [self _identityForDisplayItem:item];
     node[@"iosRaw"] = [self _iosRawForDisplayItem:item];

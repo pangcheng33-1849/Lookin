@@ -22,6 +22,8 @@ extern NSString * const LKMCPErrorCodeDuplicateRequirementID;
 extern NSString * const LKMCPErrorCodeRequirementNotFound;
 /// 参数非法或不满足约束。
 extern NSString * const LKMCPErrorCodeBadArgument;
+/// 指定 nodeId 未找到。
+extern NSString * const LKMCPErrorCodeNodeNotFound;
 /// 截图导出失败。
 extern NSString * const LKMCPErrorCodeScreenshotFailed;
 
