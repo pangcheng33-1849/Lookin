@@ -10,6 +10,7 @@
 #import "LookinDisplayItem.h"
 #import "LKRequirementBindingStore.h"
 #import "LKMCPNotifications.h"
+#import "LKMCPContextService.h"
 #import "LKAppsManager.h"
 #import "LKInspectableApp.h"
 #import "LookinAppInfo.h"
@@ -188,9 +189,10 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
 }
 
 + (NSString *)_generatedCodeInfoTextFromDisplayItem:(LookinDisplayItem *)displayItem {
-    // Current policy: only first class and first relation are written into codeInfo.
+    // Current policy: only first class / first relation and nodeId are written into codeInfo.
     NSString *firstClass = [self _firstClassTextFromDisplayItem:displayItem];
     NSString *firstRelation = [self _firstRelationTextFromDisplayItem:displayItem];
+    NSString *nodeId = [LKMCPContextService nodeIdForDisplayItem:displayItem];
 
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
     if (firstClass.length > 0) {
@@ -198,6 +200,9 @@ static BOOL LKMCPFlagEnabled(NSString *envName, NSString *defaultsKey) {
     }
     if (firstRelation.length > 0) {
         [lines addObject:[NSString stringWithFormat:@"Relation: %@", firstRelation]];
+    }
+    if (nodeId.length > 0) {
+        [lines addObject:[NSString stringWithFormat:@"nodeId: %@", nodeId]];
     }
     return [lines componentsJoinedByString:@"\n"];
 }

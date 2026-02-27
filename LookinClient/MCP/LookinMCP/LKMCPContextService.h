@@ -9,8 +9,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class LookinDisplayItem;
+
 /// 提供 MCP 所需的会话、选中节点上下文与截图能力。
 @interface LKMCPContextService : NSObject
+
+/// 生成 displayItem 对应的 nodeId（优先 view/layer oid，回退到 displayingObject oid）。
++ (NSString *)nodeIdForDisplayItem:(nullable LookinDisplayItem *)item;
 
 /// 获取当前活跃会话 ID。
 - (nullable NSString *)currentSessionId;

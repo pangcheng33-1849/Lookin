@@ -129,7 +129,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         @"session": [self _sessionPayloadForSessionId:sessionId],
         @"selectedNode": [self _buildContextPayloadForItem:selectedItem childrenDepth:childrenDepth]
     };
-    LKMCPContextLog(@"selected view context generated, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, [self _nodeIdForDisplayItem:selectedItem], @(childrenDepth));
+    LKMCPContextLog(@"selected view context generated, sessionId=%@, nodeId=%@, childrenDepth=%@", sessionId, [LKMCPContextService nodeIdForDisplayItem:selectedItem], @(childrenDepth));
     return response;
 }
 
@@ -510,7 +510,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
                                       hint:@"Select a regular UIKit view node and retry."
                                  sessionId:sessionId];
     }
-    LKMCPContextLog(@"node rejected for context, nodeId=%@, reason=unsupported-dashboard-context", [self _nodeIdForDisplayItem:item]);
+    LKMCPContextLog(@"node rejected for context, nodeId=%@, reason=unsupported-dashboard-context", [LKMCPContextService nodeIdForDisplayItem:item]);
     return NO;
 }
 
@@ -593,7 +593,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         }
     }
     return @{
-        @"nodeId": [self _nodeIdForDisplayItem:item],
+        @"nodeId": [LKMCPContextService nodeIdForDisplayItem:item],
         @"className": [item title] ?: @"",
         @"ivarNameOfParent": [item subtitle] ?: @"",
         @"hasChildren": @(hasChildren),
@@ -658,7 +658,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
         return nil;
     }
 
-    NSString *nodeId = [self _nodeIdForDisplayItem:item];
+    NSString *nodeId = [LKMCPContextService nodeIdForDisplayItem:item];
     NSNumber *timestamp = [LKMCPError currentTimestampMs];
     NSString *filePath = [cacheRoot stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_%@.png", nodeId, timestamp]];
     NSError *writeError = nil;
@@ -738,7 +738,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
 - (NSDictionary<NSString *, id> *)_identityForDisplayItem:(LookinDisplayItem *)item {
     LookinObject *displaying = [item displayingObject];
     NSMutableDictionary<NSString *, id> *identity = [NSMutableDictionary dictionary];
-    identity[@"nodeId"] = [self _nodeIdForDisplayItem:item];
+    identity[@"nodeId"] = [LKMCPContextService nodeIdForDisplayItem:item];
     if (item.viewObject) {
         identity[@"viewOid"] = @(item.viewObject.oid);
     }
@@ -863,7 +863,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
 
 - (NSDictionary<NSString *, id> *)_hintNodeForDisplayItem:(LookinDisplayItem *)item includeSubitemCount:(BOOL)includeSubitemCount {
     NSMutableDictionary<NSString *, id> *hint = [NSMutableDictionary dictionary];
-    hint[@"nodeId"] = [self _nodeIdForDisplayItem:item];
+    hint[@"nodeId"] = [LKMCPContextService nodeIdForDisplayItem:item];
     hint[@"className"] = [item displayingObject].rawClassName ?: @"";
     hint[@"frame"] = [self _frameDict:item.frame];
     if (includeSubitemCount) {
@@ -881,7 +881,7 @@ static BOOL LKMCPShouldDropSessionForSwitchScenario(void) {
     };
 }
 
-- (NSString *)_nodeIdForDisplayItem:(LookinDisplayItem *)item {
++ (NSString *)nodeIdForDisplayItem:(LookinDisplayItem *)item {
     if (item.viewObject) {
         return [NSString stringWithFormat:@"%@", @(item.viewObject.oid)];
     }
